@@ -5,9 +5,11 @@ import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.FieldNode
 import org.objectweb.asm.tree.MethodNode
 
-internal class ComputeReferenceEnvironment(
+internal abstract class ComputeReferenceEnvironment(
     val keepRuntimeInvisibleAnnotation: Boolean,
-)
+) {
+    abstract fun addDiagnostic(diagnostic: Diagnostic)
+}
 
 internal class ClassFile internal constructor(
     val main: ClassNode,
