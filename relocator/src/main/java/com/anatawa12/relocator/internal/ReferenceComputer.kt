@@ -148,7 +148,12 @@ internal class ClassRefCollectingSignatureVisitor private constructor(
     }
 
     override fun visitInnerClassType(name: String) {
-        classType = innerClasses.findInner(classType, name)
+        classType = classType?.let { classType ->
+            val foundInner = innerClasses.findInner(classType, name)
+            if (foundInner == null)
+                env.addDiagnostic(UnresolvableInnerClass(classType, name))
+            foundInner
+        }
     }
 
     override fun visitTypeArgument(wildcard: Char): SignatureVisitor = child

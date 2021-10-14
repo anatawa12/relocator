@@ -70,8 +70,7 @@ internal class InnerClassContainer(
             byName[node.outerName to node.innerName] = node
     }
 
-    fun findInner(classType: String?, name: String): String? {
-        if (classType == null) return null
+    fun findInner(classType: String, name: String): String? {
         return byName[classType to name]?.name
     }
 }

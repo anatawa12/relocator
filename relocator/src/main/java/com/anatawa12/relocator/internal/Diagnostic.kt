@@ -14,3 +14,7 @@ sealed class Diagnostic {
 }
 
 abstract class Warning : Diagnostic()
+
+class UnresolvableInnerClass(val outer: String, val inner: String) : Warning() {
+    override fun message() = "the internal name of '$outer.$inner' not found."
+}
