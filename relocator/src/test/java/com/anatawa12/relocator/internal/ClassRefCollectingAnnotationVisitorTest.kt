@@ -9,7 +9,8 @@ internal class ClassRefCollectingAnnotationVisitorTest {
     fun test(annotation: AnnotationNode): Set<ClassReference> {
         val env = TestingComputeReferenceEnvironment()
         val collection = hashSetOf<ClassReference>()
-        annotation.accept(ClassRefCollectingAnnotationVisitor(collection, env))
+        ClassRefCollectingAnnotationVisitor.acceptAnnotation(
+            ClassRefCollectingAnnotationVisitor(collection, env), annotation)
         return collection
     }
 

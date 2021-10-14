@@ -13,10 +13,8 @@ import org.objectweb.asm.Opcodes.ACC_RECORD
 import org.objectweb.asm.Opcodes.ASM9
 import org.objectweb.asm.signature.SignatureReader
 import org.objectweb.asm.signature.SignatureVisitor
-import org.objectweb.asm.tree.AnnotationNode
-import org.objectweb.asm.tree.ClassNode
-import org.objectweb.asm.tree.FieldNode
-import org.objectweb.asm.tree.MethodNode
+import org.objectweb.asm.tree.*
+import org.objectweb.asm.tree.AbstractInsnNode.*
 
 internal abstract class ComputeReferenceEnvironment(
     val keepRuntimeInvisibleAnnotation: Boolean,
@@ -106,7 +104,7 @@ internal fun computeReferencesOfMethod(
         localVariable.desc?.let(Reference.Utils::fromDescriptor)?.let(::add)
         acceptSignature(this, env, innerClasses, localVariable.signature)
     }
-    main.instructions.accept(ReferenceCollectionMethodVisitor(this, env))
+    collectReferencesOfInsnList(env, main.instructions, this)
 
     // additional: owner class
     fromInternalName(innerClasses.owner)?.let(::add)
@@ -130,6 +128,62 @@ internal fun computeReferencesOfField(
 
     // additional: owner class
     fromInternalName(innerClasses.owner)?.let(::add)
+}
+
+internal fun collectReferencesOfInsnList(
+    env: ComputeReferenceEnvironment,
+    list: InsnList,
+    references: MutableCollection<in Reference>,
+) {
+    fun processConstant(value: Any?, references: MutableCollection<in Reference>) {
+        when (value) {
+            is Type -> {
+                if (value.sort != Type.METHOD) {
+                    fromType(value)?.let(references::add)
+                } else {
+                    value.argumentTypes.mapNotNullTo(references, ::fromType)
+                    fromType(value.returnType)?.let(references::add)
+                }
+            }
+            is Handle -> references.add(fromHandle(value))
+            is ConstantDynamic -> {
+                references.add(fromHandle(value.bootstrapMethod))
+                for (i in 0 until value.bootstrapMethodArgumentCount)
+                    processConstant(value.getBootstrapMethodArgument(i), references)
+            }
+        }
+    }
+
+    for (insnNode in list) {
+        when (insnNode.type) {
+            TYPE_INSN -> {
+                insnNode as TypeInsnNode
+                fromInternalName(insnNode.desc)?.let(references::add)
+            }
+            FIELD_INSN -> {
+                insnNode as FieldInsnNode
+                references.add(FieldReference(insnNode.owner, insnNode.name, insnNode.desc))
+            }
+            METHOD_INSN -> {
+                insnNode as FieldInsnNode
+                references.add(MethodReference(insnNode.owner, insnNode.name, insnNode.desc))
+            }
+            INVOKE_DYNAMIC_INSN -> {
+                insnNode as InvokeDynamicInsnNode
+                references.add(fromHandle(insnNode.bsm))
+                insnNode.bsmArgs.forEach { processConstant(it, references) }
+            }
+            MULTIANEWARRAY_INSN -> {
+                insnNode as MultiANewArrayInsnNode
+                fromDescriptor(insnNode.desc)?.let(references::add)
+            }
+            FRAME -> {
+                insnNode as FrameNode
+                insnNode.local?.asSequence()?.filterIsInstance<String>()?.mapNotNullTo(references, ::fromInternalName)
+                insnNode.stack?.asSequence()?.filterIsInstance<String>()?.mapNotNullTo(references, ::fromInternalName)
+            }
+        }
+    }
 }
 
 internal class ClassRefCollectingSignatureVisitor private constructor(
@@ -193,6 +247,10 @@ internal class ClassRefCollectingAnnotationVisitor(
         return this
     }
 
+    override fun visitArray(name: String?): AnnotationVisitor {
+        return this
+    }
+
     override fun visitEnum(name: String?, descriptor: String, value: String) {
         fromType(Type.getType(descriptor))?.let(references::add)
     }
@@ -203,6 +261,14 @@ internal class ClassRefCollectingAnnotationVisitor(
                 fromType(value)?.let(references::add)
         }
 
+        fun acceptAnnotation(
+            visitor: ClassRefCollectingAnnotationVisitor,
+            annotation: AnnotationNode,
+        ) {
+            fromDescriptor(annotation.desc)?.let(visitor.references::add)
+            annotation.accept(visitor)
+        }
+
         fun acceptAnnotations(
             references: MutableCollection<in ClassReference>,
             env: ComputeReferenceEnvironment,
@@ -210,7 +276,7 @@ internal class ClassRefCollectingAnnotationVisitor(
         ) {
             if (annotations == null) return
             val visitor = ClassRefCollectingAnnotationVisitor(references, env)
-            annotations.forEach { it.accept(visitor) }
+            annotations.forEach { acceptAnnotation(visitor, it) }
         }
 
         fun acceptAnnotations(
@@ -221,69 +287,9 @@ internal class ClassRefCollectingAnnotationVisitor(
             if (annotations == null) return
             val visitor = ClassRefCollectingAnnotationVisitor(references, env)
             for (annotationNodes in annotations) {
-                annotationNodes.forEach { it.accept(visitor) }
+                annotationNodes.forEach { acceptAnnotation(visitor, it) }
             }
         }
     }
 }
 
-internal class ReferenceCollectionMethodVisitor(
-    val references: MutableCollection<in Reference>,
-    val env: ComputeReferenceEnvironment,
-): MethodVisitor(ASM9) {
-    override fun visitTypeInsn(opcode: Int, type: String) {
-        fromInternalName(type)?.let(references::add)
-    }
-
-    override fun visitFieldInsn(opcode: Int, owner: String, name: String, descriptor: String) {
-        references.add(FieldReference(owner, name, descriptor))
-    }
-
-    override fun visitFrame(type: Int, numLocal: Int, local: Array<out Any>?, numStack: Int, stack: Array<out Any>?) {
-        local?.asSequence()?.filterIsInstance<String>()?.mapNotNullTo(references, ::fromInternalName)
-        stack?.asSequence()?.filterIsInstance<String>()?.mapNotNullTo(references, ::fromInternalName)
-    }
-
-    override fun visitMethodInsn(
-        opcode: Int,
-        owner: String,
-        name: String,
-        descriptor: String,
-        isInterface: Boolean
-    ) {
-        references.add(MethodReference(owner, name, descriptor))
-    }
-
-    override fun visitInvokeDynamicInsn(
-        name: String,
-        descriptor: String,
-        bootstrapMethodHandle: Handle,
-        vararg bootstrapMethodArguments: Any?
-    ) {
-        references.add(fromHandle(bootstrapMethodHandle))
-        bootstrapMethodArguments.forEach(::visitLdcInsn)
-    }
-
-    override fun visitLdcInsn(value: Any?) {
-        when (value) {
-            is Type -> {
-                if (value.sort != Type.METHOD) {
-                    fromType(value)?.let(references::add)
-                } else {
-                    value.argumentTypes.mapNotNullTo(references, ::fromType)
-                    fromType(value.returnType)?.let(references::add)
-                }
-            }
-            is Handle -> references.add(fromHandle(value))
-            is ConstantDynamic -> {
-                references.add(fromHandle(value.bootstrapMethod))
-                for (i in 0 until value.bootstrapMethodArgumentCount)
-                    visitLdcInsn(value.getBootstrapMethodArgument(i))
-            }
-        }
-    }
-
-    override fun visitMultiANewArrayInsn(descriptor: String, numDimensions: Int) {
-        fromDescriptor(descriptor)?.let(references::add)
-    }
-}
