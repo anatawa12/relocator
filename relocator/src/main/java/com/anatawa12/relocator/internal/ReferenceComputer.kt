@@ -29,16 +29,16 @@ internal fun computeReferencesOfClass(
     main: ClassNode,
     innerClasses: InnerClassContainer,
 ) = buildSet<Reference> {
-    acceptSignature(this, innerClasses, main.signature)
+    acceptSignature(this, env, innerClasses, main.signature)
     main.superName.let(::fromInternalName)?.let(::add)
     // nest member classes are not required to exist
     // add them if exists
     //main.interfaces.let(::fromInternalName)?.let(::add)
-    acceptAnnotations(this, main.visibleAnnotations)
-    acceptAnnotations(this, main.visibleTypeAnnotations)
+    acceptAnnotations(this, env, main.visibleAnnotations)
+    acceptAnnotations(this, env, main.visibleTypeAnnotations)
     if (env.keepRuntimeInvisibleAnnotation) {
-        acceptAnnotations(this, main.invisibleAnnotations)
-        acceptAnnotations(this, main.invisibleTypeAnnotations)
+        acceptAnnotations(this, env, main.invisibleAnnotations)
+        acceptAnnotations(this, env, main.invisibleTypeAnnotations)
     }
     main.nestHostClass?.let(::fromInternalName)?.let(::add)
     // nest member classes are not required to exist
@@ -52,13 +52,13 @@ internal fun computeReferencesOfClass(
         // if this class will be kept
         for (recordComponent in main.recordComponents) {
             recordComponent.descriptor.let(::fromDescriptor)?.let(::add)
-            acceptSignature(this, innerClasses, recordComponent.signature)
-            acceptAnnotations(this, recordComponent.visibleAnnotations)
-            acceptAnnotations(this, recordComponent.visibleTypeAnnotations)
+            acceptSignature(this, env, innerClasses, recordComponent.signature)
+            acceptAnnotations(this, env, recordComponent.visibleAnnotations)
+            acceptAnnotations(this, env, recordComponent.visibleTypeAnnotations)
             add(MethodReference(main.name, recordComponent.name, "()${recordComponent.descriptor}"))
             if (env.keepRuntimeInvisibleAnnotation) {
-                acceptAnnotations(this, recordComponent.invisibleAnnotations)
-                acceptAnnotations(this, recordComponent.invisibleTypeAnnotations)
+                acceptAnnotations(this, env, recordComponent.invisibleAnnotations)
+                acceptAnnotations(this, env, recordComponent.invisibleTypeAnnotations)
             }
         }
         val recordDefaultCtor = "(${main.recordComponents.joinToString("") { it.descriptor }})V"
@@ -80,32 +80,33 @@ internal fun computeReferencesOfMethod(
 ) = buildSet<Reference> {
     Type.getArgumentTypes(main.desc).mapNotNullTo(this, Reference.Utils::fromType)
     Type.getReturnType(main.desc).let(Reference.Utils::fromType)?.let(::add)
-    acceptSignature(this, innerClasses, main.signature)
+    acceptSignature(this, env, innerClasses, main.signature)
     main.exceptions.mapNotNullTo(this, Reference.Utils::fromInternalName)
     acceptValue(this, main.annotationDefault)
-    acceptAnnotations(this, main.visibleAnnotations)
-    acceptAnnotations(this, main.visibleTypeAnnotations)
-    acceptAnnotations(this, main.visibleParameterAnnotations)
-    acceptAnnotations(this, main.visibleLocalVariableAnnotations)
+    acceptAnnotations(this, env, main.visibleAnnotations)
+    acceptAnnotations(this, env, main.visibleTypeAnnotations)
+    acceptAnnotations(this, env, main.visibleParameterAnnotations)
+    acceptAnnotations(this, env, main.visibleLocalVariableAnnotations)
     if (env.keepRuntimeInvisibleAnnotation) {
-        acceptAnnotations(this, main.invisibleAnnotations)
-        acceptAnnotations(this, main.invisibleTypeAnnotations)
-        acceptAnnotations(this, main.invisibleParameterAnnotations)
-        acceptAnnotations(this, main.invisibleLocalVariableAnnotations)
+        acceptAnnotations(this, env, main.invisibleAnnotations)
+        acceptAnnotations(this, env, main.invisibleTypeAnnotations)
+        acceptAnnotations(this, env, main.invisibleParameterAnnotations)
+        acceptAnnotations(this, env, main.invisibleLocalVariableAnnotations)
     }
     for (tryCatchBlock in main.tryCatchBlocks) {
         tryCatchBlock.type?.let(Reference.Utils::fromInternalName)?.let(::add)
-        acceptAnnotations(this, tryCatchBlock.visibleTypeAnnotations)
+        acceptAnnotations(this, env, tryCatchBlock.visibleTypeAnnotations)
         if (env.keepRuntimeInvisibleAnnotation) {
             acceptAnnotations(this,
+                env,
                 tryCatchBlock.invisibleTypeAnnotations)
         }
     }
     main.localVariables?.forEach { localVariable ->
         localVariable.desc?.let(Reference.Utils::fromDescriptor)?.let(::add)
-        acceptSignature(this, innerClasses, localVariable.signature)
+        acceptSignature(this, env, innerClasses, localVariable.signature)
     }
-    main.instructions.accept(ReferenceCollectionMethodVisitor(this))
+    main.instructions.accept(ReferenceCollectionMethodVisitor(this, env))
 
     // additional: owner class
     fromInternalName(innerClasses.owner)?.let(::add)
@@ -118,13 +119,13 @@ internal fun computeReferencesOfField(
 ) = buildSet<ClassReference> {
     Type.getArgumentTypes(main.desc).mapNotNullTo(this, ::fromType)
     Type.getReturnType(main.desc).let(::fromType)?.let(::add)
-    acceptSignature(this, innerClasses, main.signature)
+    acceptSignature(this, env, innerClasses, main.signature)
     acceptValue(this, main.value)
-    acceptAnnotations(this, main.visibleAnnotations)
-    acceptAnnotations(this, main.visibleTypeAnnotations)
+    acceptAnnotations(this, env, main.visibleAnnotations)
+    acceptAnnotations(this, env, main.visibleTypeAnnotations)
     if (env.keepRuntimeInvisibleAnnotation) {
-        acceptAnnotations(this, main.invisibleAnnotations)
-        acceptAnnotations(this, main.invisibleTypeAnnotations)
+        acceptAnnotations(this, env, main.invisibleAnnotations)
+        acceptAnnotations(this, env, main.invisibleTypeAnnotations)
     }
 
     // additional: owner class
@@ -133,10 +134,11 @@ internal fun computeReferencesOfField(
 
 internal class ClassRefCollectingSignatureVisitor private constructor(
     val references: MutableCollection<in ClassReference>,
+    val env: ComputeReferenceEnvironment,
     val innerClasses: InnerClassContainer,
 ) : SignatureVisitor(ASM9) {
     private val child by lazy(LazyThreadSafetyMode.NONE) {
-        ClassRefCollectingSignatureVisitor(references, innerClasses)
+        ClassRefCollectingSignatureVisitor(references, env, innerClasses)
     }
 
     private var classType: String? = null
@@ -159,10 +161,15 @@ internal class ClassRefCollectingSignatureVisitor private constructor(
     }
 
     companion object Utils {
-        fun acceptSignature(references: MutableCollection<in ClassReference>, innerClasses: InnerClassContainer, signature: String?) {
+        fun acceptSignature(
+            references: MutableCollection<in ClassReference>,
+            env: ComputeReferenceEnvironment,
+            innerClasses: InnerClassContainer,
+            signature: String?,
+        ) {
             if (signature != null) {
                 SignatureReader(signature)
-                    .accept(ClassRefCollectingSignatureVisitor(references, innerClasses))
+                    .accept(ClassRefCollectingSignatureVisitor(references, env, innerClasses))
             }
         }
     }
@@ -170,6 +177,7 @@ internal class ClassRefCollectingSignatureVisitor private constructor(
 
 internal class ClassRefCollectingAnnotationVisitor(
     val references: MutableCollection<in ClassReference>,
+    val env: ComputeReferenceEnvironment,
 ): AnnotationVisitor(ASM9) {
     override fun visit(name: String?, value: Any?) {
         acceptValue(references, value)
@@ -190,15 +198,23 @@ internal class ClassRefCollectingAnnotationVisitor(
                 fromType(value)?.let(references::add)
         }
 
-        fun acceptAnnotations(references: MutableCollection<in ClassReference>, annotations: List<AnnotationNode>?) {
+        fun acceptAnnotations(
+            references: MutableCollection<in ClassReference>,
+            env: ComputeReferenceEnvironment,
+            annotations: List<AnnotationNode>?,
+        ) {
             if (annotations == null) return
-            val visitor = ClassRefCollectingAnnotationVisitor(references)
+            val visitor = ClassRefCollectingAnnotationVisitor(references, env)
             annotations.forEach { it.accept(visitor) }
         }
 
-        fun acceptAnnotations(references: MutableCollection<in ClassReference>, annotations: Array<List<AnnotationNode>>?) {
+        fun acceptAnnotations(
+            references: MutableCollection<in ClassReference>,
+            env: ComputeReferenceEnvironment,
+            annotations: Array<List<AnnotationNode>>?,
+        ) {
             if (annotations == null) return
-            val visitor = ClassRefCollectingAnnotationVisitor(references)
+            val visitor = ClassRefCollectingAnnotationVisitor(references, env)
             for (annotationNodes in annotations) {
                 annotationNodes.forEach { it.accept(visitor) }
             }
@@ -208,6 +224,7 @@ internal class ClassRefCollectingAnnotationVisitor(
 
 internal class ReferenceCollectionMethodVisitor(
     val references: MutableCollection<in Reference>,
+    val env: ComputeReferenceEnvironment,
 ): MethodVisitor(ASM9) {
     override fun visitTypeInsn(opcode: Int, type: String) {
         fromInternalName(type)?.let(references::add)
