@@ -12,4 +12,5 @@ repositories {
 dependencies {
     implementation(kotlin("stdlib"))
     implementation("org.ow2.asm:asm:9.2")
+    implementation("org.ow2.asm:asm-util:9.2")
 }
