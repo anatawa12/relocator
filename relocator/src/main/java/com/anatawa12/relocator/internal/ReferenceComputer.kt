@@ -143,7 +143,7 @@ internal class ClassRefCollectingSignatureVisitor private constructor(
         classType = innerClasses.findInner(classType, name)
     }
 
-    override fun visitArrayType(): SignatureVisitor = child
+    override fun visitTypeArgument(wildcard: Char): SignatureVisitor = child
 
     override fun visitEnd() {
         classType?.let { classType ->
