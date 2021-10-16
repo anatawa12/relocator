@@ -125,6 +125,19 @@ class Relocator {
             (embeds.classes.asSequence() + roots.classes).map {
                 launch { it.computeReferences(ComputeReferenceEnvironmentImpl(it.main.name)) }
             }.forEach { it.join() }
+
+            // second step: connect to parent classes(including interfaces)
+            // find parent class/interfaces add reference from 
+            // parent class's same signature method
+            // if parent method is in refers, add the method to references of
+            // the class
+
+            // third step: collect references
+            // collect all references for methods/classes.
+
+            // forth step: make a jar.
+            // make a jar with relocation
+            
         }
 
         inner class ComputeReferenceEnvironmentImpl(
