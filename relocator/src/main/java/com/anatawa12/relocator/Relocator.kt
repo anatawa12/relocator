@@ -5,10 +5,11 @@ import java.util.*
 import java.util.function.Function
 
 class Relocator {
+    private val _classPath: MutableList<File> = ArrayList()
     /**
-     * The list of jar files/directories which has omit-able classes.
+     * The list of jar files/directories which has classes that will be embedded if needed.
      */
-    private val classPath: MutableList<File> = ArrayList()
+    val classPath: List<File> get() = Collections.unmodifiableList(_classPath)
 
     /**
      * Add a file or directory to classpath whose classes may be omitted.
@@ -16,17 +17,15 @@ class Relocator {
      * The classes contain in the classpath may be omitted.
      */
     fun addClassPath(classPath: File) {
-        this.classPath.add(classPath)
+        this._classPath.add(classPath)
     }
 
-    fun getClassPath(): List<File> {
-        return Collections.unmodifiableList(classPath)
-    }
+    private val _rootPath: MutableList<File> = ArrayList()
 
     /**
-     * The list of jar files/directories which has un-omit-able classes.
+     * The list of jar files/directories which has classes that always be embedded.
      */
-    private val rootPath: MutableList<File> = ArrayList()
+    val rootPath: List<File> get() = Collections.unmodifiableList(_rootPath)
 
     /**
      * Add a file or directory to classpath whose classes never be omitted.
@@ -34,12 +33,9 @@ class Relocator {
      * The classes contain in this classpath never be omitted.
      */
     fun addRootClassPath(classPath: File) {
-        rootPath.add(classPath)
+        _rootPath.add(classPath)
     }
 
-    fun getRootPath(): List<File> {
-        return Collections.unmodifiableList(rootPath)
-    }
 
     /**
      * @implSpec the map is ordered by length of package
