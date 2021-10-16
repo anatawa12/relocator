@@ -93,6 +93,8 @@ internal data class MethodReference(
     val name: String,
     /**
      * The descriptor of the method.
+     * This may not have return type information.
+     * It's for reflection.
      */
     val descriptor: String,
 ): Reference() {
@@ -109,6 +111,8 @@ internal data class FieldReference(
     val name: String,
     /**
      * The descriptor of the method.
+     * This is null if unknown.
+     * It's for reflection.
      */
-    val descriptor: String,
+    val descriptor: String?,
 ): Reference()
