@@ -9,12 +9,11 @@ class Relocator {
     /**
      * The list of jar files/directories which has classes that will be embedded if needed.
      */
-    val classPath: List<File> get() = Collections.unmodifiableList(_classPath)
+    val classPath: List<File> = Collections.unmodifiableList(_classPath)
 
     /**
-     * Add a file or directory to classpath whose classes may be omitted.
-     * @param classPath The path to file or directory to classpath.
-     * The classes contain in the classpath may be omitted.
+     * Add a file or directory to [Relocator.classPath].
+     * @param classPath The path to file or directory to [Relocator.classPath].
      */
     fun addClassPath(classPath: File) {
         this._classPath.add(classPath)
@@ -25,12 +24,11 @@ class Relocator {
     /**
      * The list of jar files/directories which has classes that always be embedded.
      */
-    val rootPath: List<File> get() = Collections.unmodifiableList(_rootPath)
+    val rootPath: List<File> = Collections.unmodifiableList(_rootPath)
 
     /**
-     * Add a file or directory to classpath whose classes never be omitted.
-     * @param classPath The path to file or directory to classpath.
-     * The classes contain in this classpath never be omitted.
+     * Add a file or directory to [Relocator.rootPath].
+     * @param classPath The path to file or directory to [Relocator.rootPath].
      */
     fun addRootClassPath(classPath: File) {
         _rootPath.add(classPath)
