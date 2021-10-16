@@ -1,8 +1,18 @@
 package com.anatawa12.relocator
 
+import com.anatawa12.relocator.internal.ComputeReferenceEnvironment
+import com.anatawa12.relocator.internal.Diagnostic
+import com.anatawa12.relocator.internal.EmbeddableClassPath
+import com.anatawa12.relocator.internal.ReferencesClassPath
+import kotlinx.coroutines.*
+import kotlinx.coroutines.intrinsics.startCoroutineCancellable
 import java.io.File
+import java.nio.channels.CompletionHandler
 import java.util.*
 import java.util.function.Function
+import kotlin.coroutines.Continuation
+import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.startCoroutine
 
 class Relocator {
     private val _referPath: MutableList<File> = ArrayList()
@@ -65,5 +75,67 @@ class Relocator {
     fun addRelocateMapping(relocateFrom: String, relocateTo: String) {
         check(relocateMapping.putIfAbsent(relocateFrom,
             relocateTo) == null) { "relocation for $relocateFrom already exists." }
+    }
+
+    /**
+     * False if you want to omit runtime invisible, 
+     * in other words, the annotations that their [java.lang.annotation.Retention] 
+     * are [java.lang.annotation.RetentionPolicy.CLASS].
+     */
+    var keepRuntimeInvisibleAnnotation: Boolean = true
+
+    fun <A> run(attachment: A, callback: CompletionHandler<Void?, A>) {
+        class ContinuationImpl : Continuation<Unit> {
+            override val context: CoroutineContext
+                get() = Dispatchers.Default
+
+            override fun resumeWith(result: Result<Unit>) {
+                if (result.isFailure) {
+                    callback.failed(result.exceptionOrNull()!!, attachment)
+                } else {
+                    callback.completed(null, attachment)
+                }
+            }
+        }
+        val continuation = ContinuationImpl()
+        try {
+            (RelocatingEnvironment()::run as (suspend () -> Unit))
+                .startCoroutine(continuation)
+        } catch (t: Throwable) {
+            continuation.resumeWith(Result.failure(t))
+        }
+    }
+
+    private inner class RelocatingEnvironment {
+        lateinit var refers: ReferencesClassPath
+        lateinit var embeds: EmbeddableClassPath
+        lateinit var roots: EmbeddableClassPath
+
+        suspend fun run(): Unit = coroutineScope {
+            refers = ReferencesClassPath(referPath)
+            embeds = EmbeddableClassPath(embedPath)
+            roots = EmbeddableClassPath(rootPath)
+            listOf (
+                launch { refers.init() },
+                launch { embeds.init() },
+                launch { roots.init() },
+            ).forEach { it.join() }
+
+            // first step: computeReferences
+            (embeds.classes.asSequence() + roots.classes).map {
+                launch { it.computeReferences(ComputeReferenceEnvironmentImpl(it.main.name)) }
+            }.forEach { it.join() }
+        }
+
+        inner class ComputeReferenceEnvironmentImpl(
+            val ofClass: String,
+        ) : ComputeReferenceEnvironment(
+            keepRuntimeInvisibleAnnotation
+        ) {
+            override fun addDiagnostic(diagnostic: Diagnostic) {
+                diagnostic.inClass = ofClass
+                throw RuntimeException("$diagnostic")
+            }
+        }
     }
 }
