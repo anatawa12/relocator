@@ -25,10 +25,10 @@ internal class ClassFile internal constructor(
     }
 
     companion object Reader {
-        fun read(bytes: ByteArray): ClassFile {
+        fun read(bytes: ByteArray, noCode: Boolean = false): ClassFile {
             val reader = ClassReader(bytes)
             val node = ClassNode()
-            reader.accept(node, 0)
+            reader.accept(node, if (noCode) ClassReader.SKIP_CODE else 0)
             return ClassFile(node)
         }
     }
