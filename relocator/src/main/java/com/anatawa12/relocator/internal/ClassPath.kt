@@ -89,10 +89,10 @@ internal class EmbeddableClassPath(files: List<File>): ClassPath(files) {
         coroutineScope {
             files.asSequence()
                 .filter { it.endsWith(".class") }
-                .map { name ->
+                .map { path ->
                     launch {
-                        val path = name.replace('/', '.')
-                        classTree[name] = ClassFile.read(loadFile("$path.class")!!)
+                        val name = path.replace('/', '.').removeSuffix(".class")
+                        classTree[name] = ClassFile.read(loadFile(path)!!)
                     }
                 }
                 .forEach { it.join() }
