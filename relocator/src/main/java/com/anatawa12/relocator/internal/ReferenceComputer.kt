@@ -114,8 +114,7 @@ internal fun computeReferencesOfField(
     main: FieldNode,
     innerClasses: InnerClassContainer,
 ) = buildSet<ClassReference> {
-    Type.getArgumentTypes(main.desc).mapNotNullTo(this, ::fromType)
-    Type.getReturnType(main.desc).let(::fromType)?.let(::add)
+    Type.getType(main.desc).let(::fromType)?.let(::add)
     acceptSignature(this, env, innerClasses, main.signature)
     acceptValue(this, main.value)
     acceptAnnotations(this, env, main.visibleAnnotations)
@@ -164,7 +163,7 @@ internal fun collectReferencesOfInsnList(
                 references.add(FieldReference(insnNode.owner, insnNode.name, insnNode.desc))
             }
             METHOD_INSN -> {
-                insnNode as FieldInsnNode
+                insnNode as MethodInsnNode
                 references.add(MethodReference(insnNode.owner, insnNode.name, insnNode.desc))
             }
             INVOKE_DYNAMIC_INSN -> {
@@ -639,12 +638,12 @@ internal class ClassRefCollectingAnnotationVisitor(
         fun acceptAnnotations(
             references: MutableCollection<in ClassReference>,
             env: ComputeReferenceEnvironment,
-            annotations: Array<List<AnnotationNode>>?,
+            annotations: Array<List<AnnotationNode>?>?,
         ) {
             if (annotations == null) return
             val visitor = ClassRefCollectingAnnotationVisitor(references, env)
             for (annotationNodes in annotations) {
-                annotationNodes.forEach { acceptAnnotation(visitor, it) }
+                annotationNodes?.forEach { acceptAnnotation(visitor, it) }
             }
         }
     }
