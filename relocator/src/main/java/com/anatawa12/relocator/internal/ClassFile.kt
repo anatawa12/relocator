@@ -24,6 +24,19 @@ internal class ClassFile internal constructor(
         fields.forEach { it.computeReferences(env) }
     }
 
+    fun computeReferencesForLibrary() {
+        references = buildSet {
+            for (method in methods) {
+                method.references = setOf(ClassReference(main.name))
+                add(MethodReference(main.name, method.main.name, method.main.desc))
+            }
+            for (field in fields) {
+                field.references = setOf(ClassReference(main.name))
+                add(FieldReference(main.name, field.main.name, field.main.desc))
+            }
+        }
+    }
+
     companion object Reader {
         fun read(bytes: ByteArray, noCode: Boolean = false): ClassFile {
             val reader = ClassReader(bytes)

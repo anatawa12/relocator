@@ -102,9 +102,12 @@ internal class EmbeddableClassPath(files: List<File>): ClassPath(files) {
     override suspend fun loadClass(name: String): ClassFile? = null
 }
 
-internal class ReferencesClassPath(files: List<File>): ClassPath(files) {
+internal class ReferencesClassPath(
+    files: List<File>,
+    val initializer: ClassFile.() -> Unit,
+): ClassPath(files) {
     override suspend fun loadClass(name: String): ClassFile? {
         val path = name.replace('/', '.')
-        return loadFile("$path.class")?.let { ClassFile.read(it, true) }
+        return loadFile("$path.class")?.let { ClassFile.read(it, true) }?.apply(initializer)
     }
 }

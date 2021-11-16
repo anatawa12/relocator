@@ -1,7 +1,8 @@
 package com.anatawa12.relocator
 
+import com.anatawa12.relocator.internal.*
+import com.anatawa12.relocator.internal.ClassFile
 import com.anatawa12.relocator.internal.ComputeReferenceEnvironment
-import com.anatawa12.relocator.internal.Diagnostic
 import com.anatawa12.relocator.internal.EmbeddableClassPath
 import com.anatawa12.relocator.internal.ReferencesClassPath
 import kotlinx.coroutines.*
@@ -112,7 +113,7 @@ class Relocator {
         lateinit var roots: EmbeddableClassPath
 
         suspend fun run(): Unit = coroutineScope {
-            refers = ReferencesClassPath(referPath)
+            refers = ReferencesClassPath(referPath, ClassFile::computeReferencesForLibrary)
             embeds = EmbeddableClassPath(embedPath)
             roots = EmbeddableClassPath(rootPath)
             listOf (
