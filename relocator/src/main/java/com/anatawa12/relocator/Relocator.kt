@@ -150,7 +150,8 @@ class Relocator {
             classpath,
         ) {
             override fun addDiagnostic(diagnostic: Diagnostic) {
-                throw RuntimeException("$diagnostic")
+                // TODO
+                println("diagnostic: $diagnostic")
             }
         }
     }
