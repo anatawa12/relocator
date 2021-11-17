@@ -8,19 +8,20 @@ import org.objectweb.asm.tree.MethodNode
 internal class ClassFile internal constructor(
     val main: ClassNode,
 ) {
-    val innerClasses = InnerClassContainer(this)
+    val innerClasses = InnerClassContainer(main.innerClasses)
     lateinit var references: Set<Reference>
     val externalReferences = mutableSetOf<Reference>()
     val methods: List<ClassMethod>
     val fields: List<ClassField>
+    val name: String get() = main.name
 
     init {
-        methods = main.methods.map { ClassMethod(it, innerClasses) }
-        fields = main.fields.map { ClassField(it, innerClasses) }
+        methods = main.methods.map { ClassMethod(it, this) }
+        fields = main.fields.map { ClassField(it, this) }
     }
 
     fun computeReferences(env: ComputeReferenceEnvironment) {
-        references = computeReferencesOfClass(env, main, innerClasses)
+        references = computeReferencesOfClass(env, this)
         methods.forEach { it.computeReferences(env) }
         fields.forEach { it.computeReferences(env) }
     }
@@ -28,12 +29,12 @@ internal class ClassFile internal constructor(
     fun computeReferencesForLibrary() {
         references = buildSet {
             for (method in methods) {
-                method.references = setOf(ClassReference(main.name))
-                add(MethodReference(main.name, method.main.name, method.main.desc))
+                method.references = setOf(ClassReference(name))
+                add(MethodReference(name, method.main.name, method.main.desc))
             }
             for (field in fields) {
-                field.references = setOf(ClassReference(main.name))
-                add(FieldReference(main.name, field.main.name, field.main.desc))
+                field.references = setOf(ClassReference(name))
+                add(FieldReference(name, field.main.name, field.main.desc))
             }
         }
     }
@@ -48,20 +49,20 @@ internal class ClassFile internal constructor(
     }
 }
 
-internal class ClassMethod internal constructor(val main: MethodNode, val innerClasses: InnerClassContainer) {
+internal class ClassMethod internal constructor(val main: MethodNode, val owner: ClassFile) {
     lateinit var references: Set<Reference>
     val externalReferences = mutableSetOf<Reference>()
 
     fun computeReferences(env: ComputeReferenceEnvironment) {
-        references = computeReferencesOfMethod(env, main, innerClasses)
+        references = computeReferencesOfMethod(env, main, owner)
     }
 }
 
-internal class ClassField internal constructor(val main: FieldNode, val innerClasses: InnerClassContainer) {
+internal class ClassField internal constructor(val main: FieldNode, val owner: ClassFile) {
     lateinit var references: Set<ClassReference>
     val externalReferences = mutableSetOf<ClassReference>()
 
     fun computeReferences(env: ComputeReferenceEnvironment) {
-        references = computeReferencesOfField(env, main, innerClasses)
+        references = computeReferencesOfField(env, main, owner)
     }
 }

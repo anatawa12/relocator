@@ -24,10 +24,10 @@ internal abstract class ComputeReferenceEnvironment(
 
 internal fun computeReferencesOfClass(
     env: ComputeReferenceEnvironment,
-    main: ClassNode,
-    innerClasses: InnerClassContainer,
+    file: ClassFile,
 ) = buildSet<Reference> {
-    acceptSignature(this, env, innerClasses, main.signature, Location.Class(main.name))
+    val main = file.main
+    acceptSignature(this, env, file.innerClasses, main.signature, Location.Class(main.name))
     main.superName.let(::fromInternalName)?.let(::add)
     // nest member classes are not required to exist
     // add them if exists
@@ -50,7 +50,7 @@ internal fun computeReferencesOfClass(
         // if this class will be kept
         for (recordComponent in main.recordComponents) {
             recordComponent.descriptor.let(::fromDescriptor)?.let(::add)
-            acceptSignature(this, env, innerClasses, recordComponent.signature, Location.RecordField(main.name, recordComponent))
+            acceptSignature(this, env, file.innerClasses, recordComponent.signature, Location.RecordField(main.name, recordComponent))
             acceptAnnotations(this, env, recordComponent.visibleAnnotations)
             acceptAnnotations(this, env, recordComponent.visibleTypeAnnotations)
             add(MethodReference(main.name, recordComponent.name, "()${recordComponent.descriptor}"))
@@ -74,11 +74,11 @@ internal fun computeReferencesOfClass(
 internal fun computeReferencesOfMethod(
     env: ComputeReferenceEnvironment, 
     main: MethodNode,
-    innerClasses: InnerClassContainer,
+    owner: ClassFile,
 ) = buildSet<Reference> {
     Type.getArgumentTypes(main.desc).mapNotNullTo(this, Reference.Utils::fromType)
     Type.getReturnType(main.desc).let(Reference.Utils::fromType)?.let(::add)
-    acceptSignature(this, env, innerClasses, main.signature, Location.Method(innerClasses.owner, main))
+    acceptSignature(this, env, owner.innerClasses, main.signature, Location.Method(owner.name, main))
     main.exceptions.mapNotNullTo(this, Reference.Utils::fromInternalName)
     acceptValue(this, main.annotationDefault)
     acceptAnnotations(this, env, main.visibleAnnotations)
@@ -102,22 +102,22 @@ internal fun computeReferencesOfMethod(
     }
     main.localVariables?.forEach { localVariable ->
         localVariable.desc?.let(Reference.Utils::fromDescriptor)?.let(::add)
-        acceptSignature(this, env, innerClasses, localVariable.signature,
-            Location.MethodLocal(innerClasses.owner, main, localVariable))
+        acceptSignature(this, env, owner.innerClasses, localVariable.signature,
+            Location.MethodLocal(owner.name, main, localVariable))
     }
     collectReferencesOfInsnList(env, main.instructions, this)
 
     // additional: owner class
-    fromInternalName(innerClasses.owner)?.let(::add)
+    fromInternalName(owner.name)?.let(::add)
 }
 
 internal fun computeReferencesOfField(
     env: ComputeReferenceEnvironment,
     main: FieldNode,
-    innerClasses: InnerClassContainer,
+    owner: ClassFile,
 ) = buildSet<ClassReference> {
     Type.getType(main.desc).let(::fromType)?.let(::add)
-    acceptSignature(this, env, innerClasses, main.signature, Location.Field(innerClasses.owner, main))
+    acceptSignature(this, env, owner.innerClasses, main.signature, Location.Field(owner.name, main))
     acceptValue(this, main.value)
     acceptAnnotations(this, env, main.visibleAnnotations)
     acceptAnnotations(this, env, main.visibleTypeAnnotations)
@@ -127,7 +127,7 @@ internal fun computeReferencesOfField(
     }
 
     // additional: owner class
-    fromInternalName(innerClasses.owner)?.let(::add)
+    fromInternalName(owner.name)?.let(::add)
 }
 
 internal fun collectReferencesOfInsnList(
@@ -530,7 +530,7 @@ internal object ExtraReferenceDetector {
                     PUTSTATIC -> +valueSizeOfField(insn.get())
                     GETFIELD -> +1 - valueSizeOfField(insn.get())
                     PUTFIELD -> +1 + valueSizeOfField(insn.get())
-                    INVOKEVIRTUAL -> +stackDiffOfVirtualMethod(insn.get())
+                   INVOKEVIRTUAL -> +stackDiffOfVirtualMethod(insn.get())
                     INVOKESPECIAL -> +stackDiffOfVirtualMethod(insn.get())
                     INVOKESTATIC -> +stackDiffOfVirtualMethod(insn.get()) - 1 // remove this arg
                     INVOKEINTERFACE -> +stackDiffOfVirtualMethod(insn.get())
