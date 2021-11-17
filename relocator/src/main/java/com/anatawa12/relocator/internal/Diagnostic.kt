@@ -14,15 +14,21 @@ sealed class Diagnostic(val location: Location) {
 }
 
 abstract class Warning(location: Location) : Diagnostic(location)
+abstract class Error(location: Location) : Diagnostic(location)
 
 class UnresolvableInnerClass(val outer: String, val inner: String, location: Location) : Warning(location) {
     override fun message() = "the internal name of '$outer.$inner' not found."
+}
+
+class UnresolvableClassError(val name: String, location: Location) : Error(location) {
+    override fun message() = "the class '$name' not found"
 }
 
 sealed class Location {
     abstract override fun toString(): String
 
     class Class(val name: String) : Location() {
+        internal constructor(file: ClassFile) : this(file.name)
         override fun toString(): String = "class $name"
     }
 
