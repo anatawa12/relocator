@@ -8,7 +8,7 @@ import org.objectweb.asm.tree.MethodNode
 internal class ClassFile internal constructor(
     val main: ClassNode,
 ) {
-    val innerClasses = InnerClassContainer(main.name, main.innerClasses)
+    val innerClasses = InnerClassContainer(this)
     lateinit var references: Set<Reference>
     val methods: List<ClassMethod>
     val fields: List<ClassField>

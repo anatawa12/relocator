@@ -2,11 +2,14 @@ package com.anatawa12.relocator.internal
 
 import org.amshove.kluent.*
 import org.junit.jupiter.api.Test
+import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.InnerClassNode
 
 internal class ClassRefCollectingSignatureVisitorTest {
     fun test(signature: String?, vararg innerClasses: InnerClassNode): Set<ClassReference> {
-        val container = InnerClassContainer("", innerClasses.toList())
+        val container = InnerClassContainer(ClassFile(ClassNode().apply {
+            this.innerClasses = innerClasses.toList()
+        }))
         val env = TestingComputeReferenceEnvironment()
         val collection = hashSetOf<ClassReference>()
         ClassRefCollectingSignatureVisitor.acceptSignature(collection, env, container, signature, Location.Class(""))

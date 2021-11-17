@@ -52,15 +52,13 @@ internal sealed class Reference {
 }
 
 internal class InnerClassContainer(
-    val owner: String,
+    val file: ClassFile,
 ) {
-    constructor(
-        owner: String,
-        innerClasses: List<InnerClassNode>,
-    ) : this(owner) {
-        innerClasses.forEach(::add)
+    init {
+        file.main.innerClasses.forEach(::add)
     }
 
+    val owner get() = file.main.name
     private val innerClasses: MutableList<InnerClassNode> = arrayListOf()
     private val byName: MutableMap<Pair<String, String>, InnerClassNode> = hashMapOf()
 
