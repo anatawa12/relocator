@@ -10,6 +10,7 @@ internal class ClassFile internal constructor(
 ) {
     val innerClasses = InnerClassContainer(this)
     lateinit var references: Set<Reference>
+    val externalReferences = mutableSetOf<Reference>()
     val methods: List<ClassMethod>
     val fields: List<ClassField>
 
@@ -49,6 +50,7 @@ internal class ClassFile internal constructor(
 
 internal class ClassMethod internal constructor(val main: MethodNode, val innerClasses: InnerClassContainer) {
     lateinit var references: Set<Reference>
+    val externalReferences = mutableSetOf<Reference>()
 
     fun computeReferences(env: ComputeReferenceEnvironment) {
         references = computeReferencesOfMethod(env, main, innerClasses)
@@ -57,6 +59,7 @@ internal class ClassMethod internal constructor(val main: MethodNode, val innerC
 
 internal class ClassField internal constructor(val main: FieldNode, val innerClasses: InnerClassContainer) {
     lateinit var references: Set<ClassReference>
+    val externalReferences = mutableSetOf<ClassReference>()
 
     fun computeReferences(env: ComputeReferenceEnvironment) {
         references = computeReferencesOfField(env, main, innerClasses)
