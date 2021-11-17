@@ -9,7 +9,7 @@ internal class ClassRefCollectingSignatureVisitorTest {
         val container = InnerClassContainer("", innerClasses.toList())
         val env = TestingComputeReferenceEnvironment()
         val collection = hashSetOf<ClassReference>()
-        ClassRefCollectingSignatureVisitor.acceptSignature(collection, env, container, signature)
+        ClassRefCollectingSignatureVisitor.acceptSignature(collection, env, container, signature, Location.Class(""))
         return collection
     }
 

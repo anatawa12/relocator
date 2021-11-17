@@ -121,10 +121,11 @@ class Relocator {
                 launch { embeds.init() },
                 launch { roots.init() },
             ).forEach { it.join() }
+            val computeReferenceEnv = ComputeReferenceEnvironmentImpl()
 
             // first step: computeReferences
             (embeds.classes.asSequence() + roots.classes).map {
-                launch { it.computeReferences(ComputeReferenceEnvironmentImpl(it.main.name)) }
+                launch { it.computeReferences(computeReferenceEnv) }
             }.forEach { it.join() }
 
             // second step: connect to parent classes(including interfaces)
@@ -142,12 +143,10 @@ class Relocator {
         }
 
         inner class ComputeReferenceEnvironmentImpl(
-            val ofClass: String,
         ) : ComputeReferenceEnvironment(
-            keepRuntimeInvisibleAnnotation
+            keepRuntimeInvisibleAnnotation,
         ) {
             override fun addDiagnostic(diagnostic: Diagnostic) {
-                diagnostic.inClass = ofClass
                 throw RuntimeException("$diagnostic")
             }
         }

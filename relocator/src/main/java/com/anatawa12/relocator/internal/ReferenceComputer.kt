@@ -26,7 +26,7 @@ internal fun computeReferencesOfClass(
     main: ClassNode,
     innerClasses: InnerClassContainer,
 ) = buildSet<Reference> {
-    acceptSignature(this, env, innerClasses, main.signature)
+    acceptSignature(this, env, innerClasses, main.signature, Location.Class(main.name))
     main.superName.let(::fromInternalName)?.let(::add)
     // nest member classes are not required to exist
     // add them if exists
@@ -49,7 +49,7 @@ internal fun computeReferencesOfClass(
         // if this class will be kept
         for (recordComponent in main.recordComponents) {
             recordComponent.descriptor.let(::fromDescriptor)?.let(::add)
-            acceptSignature(this, env, innerClasses, recordComponent.signature)
+            acceptSignature(this, env, innerClasses, recordComponent.signature, Location.RecordField(main.name, recordComponent))
             acceptAnnotations(this, env, recordComponent.visibleAnnotations)
             acceptAnnotations(this, env, recordComponent.visibleTypeAnnotations)
             add(MethodReference(main.name, recordComponent.name, "()${recordComponent.descriptor}"))
@@ -77,7 +77,7 @@ internal fun computeReferencesOfMethod(
 ) = buildSet<Reference> {
     Type.getArgumentTypes(main.desc).mapNotNullTo(this, Reference.Utils::fromType)
     Type.getReturnType(main.desc).let(Reference.Utils::fromType)?.let(::add)
-    acceptSignature(this, env, innerClasses, main.signature)
+    acceptSignature(this, env, innerClasses, main.signature, Location.Method(innerClasses.owner, main))
     main.exceptions.mapNotNullTo(this, Reference.Utils::fromInternalName)
     acceptValue(this, main.annotationDefault)
     acceptAnnotations(this, env, main.visibleAnnotations)
@@ -101,7 +101,8 @@ internal fun computeReferencesOfMethod(
     }
     main.localVariables?.forEach { localVariable ->
         localVariable.desc?.let(Reference.Utils::fromDescriptor)?.let(::add)
-        acceptSignature(this, env, innerClasses, localVariable.signature)
+        acceptSignature(this, env, innerClasses, localVariable.signature,
+            Location.MethodLocal(innerClasses.owner, main, localVariable))
     }
     collectReferencesOfInsnList(env, main.instructions, this)
 
@@ -115,7 +116,7 @@ internal fun computeReferencesOfField(
     innerClasses: InnerClassContainer,
 ) = buildSet<ClassReference> {
     Type.getType(main.desc).let(::fromType)?.let(::add)
-    acceptSignature(this, env, innerClasses, main.signature)
+    acceptSignature(this, env, innerClasses, main.signature, Location.Field(innerClasses.owner, main))
     acceptValue(this, main.value)
     acceptAnnotations(this, env, main.visibleAnnotations)
     acceptAnnotations(this, env, main.visibleTypeAnnotations)
@@ -546,9 +547,10 @@ internal class ClassRefCollectingSignatureVisitor private constructor(
     val references: MutableCollection<in ClassReference>,
     val env: ComputeReferenceEnvironment,
     val innerClasses: InnerClassContainer,
+    val location: Location,
 ) : SignatureVisitor(ASM9) {
     private val child by lazy(LazyThreadSafetyMode.NONE) {
-        ClassRefCollectingSignatureVisitor(references, env, innerClasses)
+        ClassRefCollectingSignatureVisitor(references, env, innerClasses, location)
     }
 
     private var classType: String? = null
@@ -561,7 +563,7 @@ internal class ClassRefCollectingSignatureVisitor private constructor(
         classType = classType?.let { classType ->
             val foundInner = innerClasses.findInner(classType, name)
             if (foundInner == null)
-                env.addDiagnostic(UnresolvableInnerClass(classType, name))
+                env.addDiagnostic(UnresolvableInnerClass(classType, name, location))
             foundInner
         }
     }
@@ -581,10 +583,11 @@ internal class ClassRefCollectingSignatureVisitor private constructor(
             env: ComputeReferenceEnvironment,
             innerClasses: InnerClassContainer,
             signature: String?,
+            location: Location,
         ) {
             if (signature != null) {
                 SignatureReader(signature)
-                    .accept(ClassRefCollectingSignatureVisitor(references, env, innerClasses))
+                    .accept(ClassRefCollectingSignatureVisitor(references, env, innerClasses, location))
             }
         }
     }
