@@ -17,6 +17,7 @@ import org.objectweb.asm.tree.AbstractInsnNode.*
 
 internal abstract class ComputeReferenceEnvironment(
     val keepRuntimeInvisibleAnnotation: Boolean,
+    val classpath: CombinedClassPath,
 ) {
     abstract fun addDiagnostic(diagnostic: Diagnostic)
 }

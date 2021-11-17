@@ -6,6 +6,7 @@ internal class TestingComputeReferenceEnvironment(
     keepRuntimeInvisibleAnnotation: Boolean = true,
 ) : ComputeReferenceEnvironment(
     keepRuntimeInvisibleAnnotation,
+    CombinedClassPath(emptyList()),
 ) {
     override fun addDiagnostic(diagnostic: Diagnostic) {
         throw DiagnosticException(diagnostic)

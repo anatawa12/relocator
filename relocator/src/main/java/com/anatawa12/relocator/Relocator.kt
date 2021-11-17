@@ -121,7 +121,8 @@ class Relocator {
                 launch { embeds.init() },
                 launch { roots.init() },
             ).forEach { it.join() }
-            val computeReferenceEnv = ComputeReferenceEnvironmentImpl()
+            val classpath = CombinedClassPath(listOf(roots, embeds, refers))
+            val computeReferenceEnv = ComputeReferenceEnvironmentImpl(classpath)
 
             // first step: computeReferences
             (embeds.classes.asSequence() + roots.classes).map {
@@ -143,8 +144,10 @@ class Relocator {
         }
 
         inner class ComputeReferenceEnvironmentImpl(
+            classpath: CombinedClassPath,
         ) : ComputeReferenceEnvironment(
             keepRuntimeInvisibleAnnotation,
+            classpath,
         ) {
             override fun addDiagnostic(diagnostic: Diagnostic) {
                 throw RuntimeException("$diagnostic")

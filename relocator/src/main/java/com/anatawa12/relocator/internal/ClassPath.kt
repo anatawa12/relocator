@@ -111,3 +111,10 @@ internal class ReferencesClassPath(
         return loadFile("$path.class")?.let { ClassFile.read(it, true) }?.apply(initializer)
     }
 }
+
+internal class CombinedClassPath(
+    val classpath: List<ClassPath>,
+) {
+    suspend fun findClass(name: String): ClassFile? =
+        classpath.firstNotNullOfOrNull { it.findClass(name) }
+}
