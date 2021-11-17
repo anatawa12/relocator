@@ -14,6 +14,7 @@ import org.objectweb.asm.signature.SignatureReader
 import org.objectweb.asm.signature.SignatureVisitor
 import org.objectweb.asm.tree.*
 import org.objectweb.asm.tree.AbstractInsnNode.*
+import java.util.*
 
 internal abstract class ComputeReferenceEnvironment(
     val keepRuntimeInvisibleAnnotation: Boolean,
@@ -71,7 +72,7 @@ internal fun computeReferencesOfClass(
     }
 }
 
-internal fun computeReferencesOfMethod(
+internal suspend fun computeReferencesOfMethod(
     env: ComputeReferenceEnvironment, 
     main: MethodNode,
     owner: ClassFile,
@@ -109,9 +110,17 @@ internal fun computeReferencesOfMethod(
 
     // additional: owner class
     fromInternalName(owner.name)?.let(::add)
+    // additional: parent class's method to current one
+    val refToThisMethod = MethodReference(owner.name, main.name, main.desc)
+    ParentClasses(env, owner).forEach { parentClass ->
+        val parentMethod = parentClass.methods.firstOrNull { it.main.name == main.name && it.main.desc == main.desc }
+            ?: return@forEach true
+        parentMethod.externalReferences += refToThisMethod
+        false
+    }
 }
 
-internal fun computeReferencesOfField(
+internal suspend fun computeReferencesOfField(
     env: ComputeReferenceEnvironment,
     main: FieldNode,
     owner: ClassFile,
@@ -128,6 +137,14 @@ internal fun computeReferencesOfField(
 
     // additional: owner class
     fromInternalName(owner.name)?.let(::add)
+    // additional: parent class's field to current one
+    val refToThisField = FieldReference(owner.name, main.name, main.desc)
+    ParentClasses(env, owner).forEach { parentClass ->
+        val parentMethod = parentClass.fields.firstOrNull { it.main.name == main.name && it.main.desc == main.desc }
+            ?: return@forEach true
+        parentMethod.externalReferences += refToThisField
+        false
+    }
 }
 
 internal fun collectReferencesOfInsnList(
@@ -653,3 +670,55 @@ internal class ClassRefCollectingAnnotationVisitor(
     }
 }
 
+internal suspend fun ComputeReferenceEnvironment.findClassOrError(name: String, location: Location): ClassFile? {
+    return classpath.findClass(name) ?: kotlin.run {
+        addDiagnostic(UnresolvableClassError(name, location))
+        null
+    }
+}
+
+internal class ParentClasses(
+    val env: ComputeReferenceEnvironment,
+    entry: ClassFile,
+) {
+    val proceed = mutableSetOf(entry)
+    val toBeProceed = LinkedList<ClassFile>().apply { add(entry) }
+    val location = Location.Class(entry)
+    var superNames = sequenceOf<String>().iterator()
+    var prevReturned: ClassFile? = null
+
+    init {
+        updateSuperNames()
+    }
+
+    suspend inline fun forEach(block: (ClassFile) -> Boolean) {
+        var goDeep = false
+        while (true) goDeep = block(next(goDeep) ?: return)
+    }
+
+    suspend fun next(goDeep: Boolean): ClassFile? {
+        prevReturned?.let {
+            if (goDeep) toBeProceed.add(it)
+            prevReturned = null
+        }
+        while (superNames.hasNext()) {
+            val superName = superNames.next()
+            env.findClassOrError(superName, location)?.let { superClass ->
+                if (superClass !in proceed) {
+                    proceed.add(superClass)
+                    prevReturned = superClass
+                    return superClass
+                }
+            }
+        }
+        if (!updateSuperNames())
+            return null
+        return next(false)
+    }
+
+    private fun updateSuperNames(): Boolean {
+        val first = toBeProceed.pollFirst() ?: return false
+        superNames = (sequenceOf(first.main.superName) + first.main.interfaces).iterator()
+        return true
+    }
+}

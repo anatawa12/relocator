@@ -20,7 +20,7 @@ internal class ClassFile internal constructor(
         fields = main.fields.map { ClassField(it, this) }
     }
 
-    fun computeReferences(env: ComputeReferenceEnvironment) {
+    suspend fun computeReferences(env: ComputeReferenceEnvironment) {
         references = computeReferencesOfClass(env, this)
         methods.forEach { it.computeReferences(env) }
         fields.forEach { it.computeReferences(env) }
@@ -53,16 +53,16 @@ internal class ClassMethod internal constructor(val main: MethodNode, val owner:
     lateinit var references: Set<Reference>
     val externalReferences = mutableSetOf<Reference>()
 
-    fun computeReferences(env: ComputeReferenceEnvironment) {
+    suspend fun computeReferences(env: ComputeReferenceEnvironment) {
         references = computeReferencesOfMethod(env, main, owner)
     }
 }
 
 internal class ClassField internal constructor(val main: FieldNode, val owner: ClassFile) {
     lateinit var references: Set<ClassReference>
-    val externalReferences = mutableSetOf<ClassReference>()
+    val externalReferences = mutableSetOf<Reference>()
 
-    fun computeReferences(env: ComputeReferenceEnvironment) {
+    suspend fun computeReferences(env: ComputeReferenceEnvironment) {
         references = computeReferencesOfField(env, main, owner)
     }
 }
