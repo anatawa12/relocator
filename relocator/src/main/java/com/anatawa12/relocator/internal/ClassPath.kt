@@ -6,6 +6,7 @@ import kotlinx.coroutines.sync.withLock
 import java.io.File
 import java.io.FileNotFoundException
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 
@@ -19,7 +20,7 @@ internal abstract class ClassPath(files: List<File>) {
     suspend fun loadFile(path: String): ByteArray? =
         containers.firstNotNullOfOrNull { it.loadFile(path) }
 
-    protected val classTree = mutableMapOf<String, ClassFile>()
+    protected val classTree = ConcurrentHashMap<String, ClassFile>()
     suspend fun findClass(name: String): ClassFile? {
         val dottedName = name.replace('/', '.')
         return classTree[dottedName]
