@@ -6,10 +6,10 @@ import com.anatawa12.relocator.internal.ComputeReferenceEnvironment
 import com.anatawa12.relocator.internal.EmbeddableClassPath
 import com.anatawa12.relocator.internal.ReferencesClassPath
 import kotlinx.coroutines.*
-import kotlinx.coroutines.intrinsics.startCoroutineCancellable
 import java.io.File
 import java.nio.channels.CompletionHandler
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import java.util.function.Function
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.CoroutineContext
@@ -111,17 +111,22 @@ class Relocator {
         lateinit var refers: ReferencesClassPath
         lateinit var embeds: EmbeddableClassPath
         lateinit var roots: EmbeddableClassPath
+        lateinit var classpath: CombinedClassPath
+        val externalClasses = mutableListOf<ClassFile>()
 
         suspend fun run(): Unit = coroutineScope {
-            refers = ReferencesClassPath(referPath, ClassFile::computeReferencesForLibrary)
+            refers = ReferencesClassPath(referPath) {
+                computeReferencesForLibrary()
+                externalClasses += this
+            }
             embeds = EmbeddableClassPath(embedPath)
             roots = EmbeddableClassPath(rootPath)
-            listOf (
+            listOf(
                 launch { refers.init() },
                 launch { embeds.init() },
                 launch { roots.init() },
             ).forEach { it.join() }
-            val classpath = CombinedClassPath(listOf(roots, embeds, refers))
+            classpath = CombinedClassPath(listOf(roots, embeds, refers))
             val computeReferenceEnv = ComputeReferenceEnvironmentImpl(classpath)
 
             // first step: computeReferences
@@ -129,18 +134,90 @@ class Relocator {
                 launch { it.computeReferences(computeReferenceEnv) }
             }.forEach { it.join() }
 
-            // second step: connect to parent classes(including interfaces)
-            // find parent class/interfaces add reference from 
-            // parent class's same signature method
-            // if parent method is in refers, add the method to references of
-            // the class
-
-            // third step: collect references
+            // second step: collect references
             // collect all references for methods/classes.
+            collectReferences()
 
             // forth step: make a jar.
             // make a jar with relocation
             
+        }
+
+        private val references = Collections.newSetFromMap<Reference>(ConcurrentHashMap())
+
+        private suspend fun collectReferences() = coroutineScope {
+            val rootClasses = roots.classes
+                .asSequence()
+                .flatMap {
+                    references.add(ClassReference(it.name))
+                    sequence {
+                        yield(async { collectReferencesOf(it) })
+                        for (method in it.methods) {
+                            references.add(MethodReference(it.name, method.main.name, method.main.desc))
+                            yield(async { collectReferencesOf(method) })
+                        }
+                        for (field in it.fields) {
+                            references.add(FieldReference(it.name, field.main.name, field.main.desc))
+                            yield(async { collectReferencesOf(field) })
+                        }
+                    }
+                }
+            val externals = externalClasses.asSequence().map {
+                references.add(ClassReference(it.name))
+                async { collectReferencesOf(it) }
+            }
+            (rootClasses + externals).forEach { it.await() }
+        }
+
+        private suspend fun collectReferencesOf(reference: Reference) {
+            // TODO: For fields/methods, we need to search for parent classes/interfaces
+            when (reference) {
+                is ClassReference -> collectReferencesOf(classpath.findClass(reference)
+                    ?: return addDiagnostic(UnresolvableClassError(reference, Location.None)))
+                is FieldReference -> {
+                    val fields = classpath.findFields(reference)
+                    if (fields.isNullOrEmpty())
+                        return addDiagnostic(UnresolvableFieldError(reference, Location.None))
+                    coroutineScope { fields.map { async { collectReferencesOf(it) } } }
+                        .forEach { it.await() }
+                }
+                is MethodReference -> {
+                    collectReferencesOf(classpath.findMethod(reference)
+                        ?: return addDiagnostic(UnresolvableMethodError(reference, Location.None)))
+                }
+            }
+        }
+
+        private suspend fun collectReferencesOf(classFile: ClassFile) = coroutineScope {
+            classFile.included = true
+            classFile.allReferences
+                .asSequence()
+                .filter { references.add(it) }
+                .map { async { collectReferencesOf(it) } }
+                .forEach { it.await() }
+        }
+
+        private suspend fun collectReferencesOf(field: ClassField) = coroutineScope {
+            field.included = true
+            field.allReferences
+                .asSequence()
+                .filter { references.add(it) }
+                .map { async { collectReferencesOf(it) } }
+                .forEach { it.await() }
+        }
+
+        private suspend fun collectReferencesOf(method: ClassMethod) = coroutineScope {
+            method.included = true
+            method.allReferences
+                .asSequence()
+                .filter { references.add(it) }
+                .map { async { collectReferencesOf(it) } }
+                .forEach { it.await() }
+        }
+
+        fun addDiagnostic(diagnostic: Diagnostic) {
+            // TODO
+            println("diagnostic: $diagnostic")
         }
 
         inner class ComputeReferenceEnvironmentImpl(
@@ -150,8 +227,7 @@ class Relocator {
             classpath,
         ) {
             override fun addDiagnostic(diagnostic: Diagnostic) {
-                // TODO
-                println("diagnostic: $diagnostic")
+                this@RelocatingEnvironment.addDiagnostic(diagnostic)
             }
         }
     }
