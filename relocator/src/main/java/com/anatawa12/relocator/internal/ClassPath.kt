@@ -93,7 +93,7 @@ internal class EmbeddableClassPath(files: List<File>): ClassPath(files) {
                 .map { path ->
                     launch {
                         val name = path.replace('/', '.').removeSuffix(".class")
-                        classTree[name] = ClassFile.read(loadFile(path)!!)
+                        classTree[name] = ClassFile.read(loadFile(path)!!, this@EmbeddableClassPath)
                     }
                 }
                 .forEach { it.join() }
@@ -109,7 +109,7 @@ internal class ReferencesClassPath(
 ): ClassPath(files) {
     override suspend fun loadClass(name: String): ClassFile? {
         val path = name.replace('.', '/')
-        return loadFile("$path.class")?.let { ClassFile.read(it, true) }?.apply(initializer)
+        return loadFile("$path.class")?.let { ClassFile.read(it, this, true) }?.apply(initializer)
     }
 }
 

@@ -7,6 +7,7 @@ import org.objectweb.asm.tree.MethodNode
 
 internal class ClassFile internal constructor(
     val main: ClassNode,
+    val loader: ClassPath,
 ) {
     val innerClasses = InnerClassContainer(main.innerClasses)
     lateinit var references: Set<Reference>
@@ -41,11 +42,11 @@ internal class ClassFile internal constructor(
     }
 
     companion object Reader {
-        fun read(bytes: ByteArray, noCode: Boolean = false): ClassFile {
+        fun read(bytes: ByteArray, loader: ClassPath, noCode: Boolean = false): ClassFile {
             val reader = ClassReader(bytes)
             val node = ClassNode()
             reader.accept(node, if (noCode) ClassReader.SKIP_CODE else 0)
-            return ClassFile(node)
+            return ClassFile(node, loader)
         }
     }
 }
