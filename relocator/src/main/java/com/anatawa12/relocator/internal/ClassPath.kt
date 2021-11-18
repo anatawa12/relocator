@@ -118,4 +118,10 @@ internal class CombinedClassPath(
 ) {
     suspend fun findClass(name: String): ClassFile? =
         classpath.firstNotNullOfOrNull { it.findClass(name) }
+    suspend fun findClass(ref: ClassReference): ClassFile? =
+        classpath.firstNotNullOfOrNull { it.findClass(ref.name) }
+    suspend fun findMethod(ref: MethodReference): ClassMethod? =
+        findClass(ref.owner)?.findMethod(ref)
+    suspend fun findFields(ref: FieldReference): List<ClassField>? =
+        findClass(ref.owner)?.findFields(ref)
 }

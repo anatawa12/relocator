@@ -51,6 +51,15 @@ internal class ClassFile internal constructor(
     }
 }
 
+internal fun ClassFile.findMethod(ref: MethodReference): ClassMethod? =
+    findMethod(ref.name, ref.descriptor)
+internal fun ClassFile.findMethod(name: String, desc: String): ClassMethod? =
+    methods.firstOrNull { it.main.name == name && it.main.desc == desc }
+internal fun ClassFile.findFields(ref: FieldReference): List<ClassField> =
+    fields.filter { it.main.name == ref.name && (ref.descriptor == null || it.main.desc == ref.descriptor) }
+internal fun ClassFile.findField(name: String, desc: String): ClassField? =
+    fields.firstOrNull { it.main.name == name && it.main.desc == desc }
+
 internal class ClassMethod internal constructor(val main: MethodNode, val owner: ClassFile) {
     lateinit var references: Set<Reference>
     val externalReferences = mutableSetOf<Reference>()

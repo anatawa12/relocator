@@ -114,9 +114,7 @@ internal suspend fun computeReferencesOfMethod(
     if (main.name != "<init>" && main.name != "<clinit>" && (main.access and ACC_PRIVATE) != 0) {
         val refToThisMethod = MethodReference(owner.name, main.name, main.desc)
         ParentClasses(env, owner).forEach { parentClass ->
-            val parentMethod =
-                parentClass.methods.firstOrNull { it.main.name == main.name && it.main.desc == main.desc }
-                    ?: return@forEach true
+            val parentMethod = parentClass.findMethod(main.name, main.desc) ?: return@forEach true
             parentMethod.externalReferences += refToThisMethod
             false
         }
@@ -143,9 +141,8 @@ internal suspend fun computeReferencesOfField(
     // additional: parent class's field to current one
     val refToThisField = FieldReference(owner.name, main.name, main.desc)
     ParentClasses(env, owner).forEach { parentClass ->
-        val parentMethod = parentClass.fields.firstOrNull { it.main.name == main.name && it.main.desc == main.desc }
-            ?: return@forEach true
-        parentMethod.externalReferences += refToThisField
+        val parentField = parentClass.findField(main.name, main.desc)  ?: return@forEach true
+        parentField.externalReferences += refToThisField
         false
     }
 }
