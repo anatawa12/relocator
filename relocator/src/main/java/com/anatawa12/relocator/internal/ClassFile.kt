@@ -9,6 +9,7 @@ internal class ClassFile internal constructor(
     val main: ClassNode,
     val loader: ClassPath,
 ) {
+    var included: Boolean = false
     val innerClasses = InnerClassContainer(main.innerClasses)
     lateinit var references: Set<Reference>
     val externalReferences = mutableSetOf<Reference>()
@@ -61,6 +62,7 @@ internal fun ClassFile.findField(name: String, desc: String): ClassField? =
     fields.firstOrNull { it.main.name == name && it.main.desc == desc }
 
 internal class ClassMethod internal constructor(val main: MethodNode, val owner: ClassFile) {
+    var included: Boolean = false
     lateinit var references: Set<Reference>
     val externalReferences = mutableSetOf<Reference>()
     val allReferences get() = references + externalReferences
@@ -71,6 +73,7 @@ internal class ClassMethod internal constructor(val main: MethodNode, val owner:
 }
 
 internal class ClassField internal constructor(val main: FieldNode, val owner: ClassFile) {
+    var included: Boolean = false
     lateinit var references: Set<ClassReference>
     val externalReferences = mutableSetOf<Reference>()
     val allReferences get() = references + externalReferences
