@@ -29,7 +29,7 @@ internal fun computeReferencesOfClass(
 ) = buildSet<Reference> {
     val main = file.main
     acceptSignature(this, env, file.innerClasses, main.signature, Location.Class(main.name))
-    main.superName.let(::fromInternalName)?.let(::add)
+    main.superName?.let(::fromInternalName)?.let(::add)
     // nest member classes are not required to exist
     // add them if exists
     //main.interfaces.let(::fromInternalName)?.let(::add)
