@@ -108,7 +108,7 @@ internal class ReferencesClassPath(
     val initializer: ClassFile.() -> Unit,
 ): ClassPath(files) {
     override suspend fun loadClass(name: String): ClassFile? {
-        val path = name.replace('/', '.')
+        val path = name.replace('.', '/')
         return loadFile("$path.class")?.let { ClassFile.read(it, true) }?.apply(initializer)
     }
 }

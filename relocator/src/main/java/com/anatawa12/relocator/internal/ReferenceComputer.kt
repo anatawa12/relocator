@@ -684,7 +684,7 @@ internal class ParentClasses(
     val proceed = mutableSetOf(entry)
     val toBeProceed = LinkedList<ClassFile>().apply { add(entry) }
     val location = Location.Class(entry)
-    var superNames = sequenceOf<String>().iterator()
+    var superNames = sequenceOf<String?>().iterator()
     var prevReturned: ClassFile? = null
 
     init {
@@ -702,7 +702,7 @@ internal class ParentClasses(
             prevReturned = null
         }
         while (superNames.hasNext()) {
-            val superName = superNames.next()
+            val superName = superNames.next() ?: continue
             env.findClassOrError(superName, location)?.let { superClass ->
                 if (superClass !in proceed) {
                     proceed.add(superClass)
