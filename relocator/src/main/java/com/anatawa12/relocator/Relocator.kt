@@ -190,27 +190,33 @@ class Relocator {
 
         private suspend fun collectReferencesOf(classFile: ClassFile) = coroutineScope {
             classFile.included = true
+            val location = Location.Class(classFile.name)
             classFile.allReferences
                 .asSequence()
                 .filter { references.add(it) }
+                .onEach { it.withLocation(location) }
                 .map { async { collectReferencesOf(it) } }
                 .forEach { it.await() }
         }
 
         private suspend fun collectReferencesOf(field: ClassField) = coroutineScope {
             field.included = true
+            val location = Location.Field(field.owner.name, field.main)
             field.allReferences
                 .asSequence()
                 .filter { references.add(it) }
+                .onEach { it.withLocation(location) }
                 .map { async { collectReferencesOf(it) } }
                 .forEach { it.await() }
         }
 
         private suspend fun collectReferencesOf(method: ClassMethod) = coroutineScope {
             method.included = true
+            val location = Location.Method(method.owner.name, method.main)
             method.allReferences
                 .asSequence()
                 .filter { references.add(it) }
+                .onEach { it.withLocation(location) }
                 .map { async { collectReferencesOf(it) } }
                 .forEach { it.await() }
         }

@@ -6,6 +6,8 @@ import org.objectweb.asm.Type
 import org.objectweb.asm.tree.InnerClassNode
 
 internal sealed class Reference {
+    var location: Location? = null
+
     companion object Utils {
         @JvmStatic
         fun fromType(type: Type): ClassReference? {
@@ -50,6 +52,8 @@ internal sealed class Reference {
         }
     }
 }
+
+fun <R: Reference> R.withLocation(location: Location) = apply { this.location = location }
 
 internal class InnerClassContainer(
     innerClasses: List<InnerClassNode>,
