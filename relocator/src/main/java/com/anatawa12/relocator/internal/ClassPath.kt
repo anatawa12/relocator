@@ -1,6 +1,7 @@
 package com.anatawa12.relocator.internal
 
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.File
@@ -120,8 +121,25 @@ internal class CombinedClassPath(
         classpath.firstNotNullOfOrNull { it.findClass(name) }
     suspend fun findClass(ref: ClassReference): ClassFile? =
         classpath.firstNotNullOfOrNull { it.findClass(ref.name) }
+
+    private suspend inline fun deepClasses(rootClass: String): Flow<ClassFile> = flow {
+        val classes = LinkedList<String>()
+        classes.add(rootClass)
+        while (classes.isNotEmpty()) {
+            val classFile = findClass(classes.removeFirst()) ?: continue
+            emit(classFile)
+            classFile.main.superName?.let(classes::addFirst)
+            classes.addAll(0, classFile.main.interfaces)
+        }
+    }
+
     suspend fun findMethod(ref: MethodReference): ClassMethod? =
-        findClass(ref.owner)?.findMethod(ref)
-    suspend fun findFields(ref: FieldReference): List<ClassField>? =
-        findClass(ref.owner)?.findFields(ref)
+        deepClasses(ref.owner)
+            .mapNotNull { it.findMethod(ref) }
+            .firstOrNull()
+
+    suspend fun findFields(ref: FieldReference): List<ClassField> = 
+        if (ref.descriptor != null)
+            listOfNotNull(deepClasses(ref.owner).mapNotNull { it.findField(ref.name, ref.descriptor) }.firstOrNull())
+        else deepClasses(ref.owner).flatMapConcat { it.findFields(ref).asFlow() }.toList()
 }

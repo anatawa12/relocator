@@ -176,7 +176,7 @@ class Relocator {
                     ?: return addDiagnostic(UnresolvableClassError(reference, reference.location ?: Location.None)))
                 is FieldReference -> {
                     val fields = classpath.findFields(reference)
-                    if (fields.isNullOrEmpty())
+                    if (fields.isEmpty())
                         return addDiagnostic(UnresolvableFieldError(reference, reference.location ?: Location.None))
                     coroutineScope { fields.map { async { collectReferencesOf(it) } } }
                         .forEach { it.await() }
