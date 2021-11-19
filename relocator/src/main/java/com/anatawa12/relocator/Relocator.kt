@@ -173,17 +173,17 @@ class Relocator {
             // TODO: For fields/methods, we need to search for parent classes/interfaces
             when (reference) {
                 is ClassReference -> collectReferencesOf(classpath.findClass(reference)
-                    ?: return addDiagnostic(UnresolvableClassError(reference, Location.None)))
+                    ?: return addDiagnostic(UnresolvableClassError(reference, reference.location ?: Location.None)))
                 is FieldReference -> {
                     val fields = classpath.findFields(reference)
                     if (fields.isNullOrEmpty())
-                        return addDiagnostic(UnresolvableFieldError(reference, Location.None))
+                        return addDiagnostic(UnresolvableFieldError(reference, reference.location ?: Location.None))
                     coroutineScope { fields.map { async { collectReferencesOf(it) } } }
                         .forEach { it.await() }
                 }
                 is MethodReference -> {
                     collectReferencesOf(classpath.findMethod(reference)
-                        ?: return addDiagnostic(UnresolvableMethodError(reference, Location.None)))
+                        ?: return addDiagnostic(UnresolvableMethodError(reference, reference.location ?: Location.None)))
                 }
             }
         }
