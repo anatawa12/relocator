@@ -106,7 +106,7 @@ internal suspend fun computeReferencesOfMethod(
         acceptSignature(this, env, owner.innerClasses, localVariable.signature,
             Location.MethodLocal(owner.name, main, localVariable))
     }
-    collectReferencesOfInsnList(env, main.instructions, this)
+    collectReferencesOfInsnList(env, main.instructions, this, Location.Method(owner.name, main))
 
     // additional: owner class
     fromInternalName(owner.name)?.let(::add)
@@ -151,6 +151,7 @@ internal fun collectReferencesOfInsnList(
     env: ComputeReferenceEnvironment,
     list: InsnList,
     references: MutableCollection<in Reference>,
+    location: Location,
 ) {
     fun processConstant(value: Any?, references: MutableCollection<in Reference>) {
         when (value) {
@@ -200,7 +201,7 @@ internal fun collectReferencesOfInsnList(
                 insnNode.stack?.asSequence()?.filterIsInstance<String>()?.mapNotNullTo(references, ::fromInternalName)
             }
         }
-        ExtraReferenceDetector.detectExtraReference(insnNode)
+        ExtraReferenceDetector.detectExtraReference(insnNode, env, location)
     }
 }
 
@@ -237,8 +238,8 @@ internal object ExtraReferenceDetector {
         return desc.substring(1, desc.length - 1)
     }
 
-    fun detectExtraReference(insnNode: AbstractInsnNode): Reference? {
-        resolveOnStackClass(InsnContainer.get(insnNode))?.let { descriptor ->
+    fun detectExtraReference(insnNode: AbstractInsnNode, env: ComputeReferenceEnvironment, location: Location): Reference? {
+        resolveOnStackClass(InsnContainer.get(insnNode), env, location)?.let { descriptor ->
             return fromDescriptor(descriptor)
         }
         if (insnNode.opcode == INVOKEVIRTUAL) {
@@ -248,8 +249,10 @@ internal object ExtraReferenceDetector {
                 && insnNode.desc == "(L${"java/lang/String"};)L${"java/lang/reflect/Field"};"
             ) {
                 val insn = InsnContainer.get(insnNode).prev()
-                val fieldName = ldcString(insn) ?: return null
-                val ownerClass = descToInternalName(resolveOnStackClass(insn)) ?: return null
+                val fieldName = ldcString(insn)
+                    ?: return env.addDiagnostic(UnresolvableReflectionField(location)).run { null }
+                val ownerClass = descToInternalName(resolveOnStackClass(insn, env, location))
+                    ?: return env.addDiagnostic(UnresolvableReflectionField(location)).run { null }
                 return FieldReference(ownerClass, fieldName, null)
             }
             if (insnNode.owner == "java/lang/Class"
@@ -257,16 +260,19 @@ internal object ExtraReferenceDetector {
                 && insnNode.desc == "(L${"java/lang/String"};[L${"java/lang/Class"};)L${"java/lang/reflect/Method"};"
             ) {
                 val insn = InsnContainer.get(insnNode).prev()
-                val methodArgs = resolveOnStackClassArray(insn) ?: return null
-                val methodName = ldcString(insn) ?: return null
-                val ownerClass = descToInternalName(resolveOnStackClass(insn)) ?: return null
+                val methodArgs = resolveOnStackClassArray(insn, env, location)
+                    ?: return env.addDiagnostic(UnresolvableReflectionMethod(location)).run { null }
+                val methodName = ldcString(insn)
+                    ?: return env.addDiagnostic(UnresolvableReflectionMethod(location)).run { null }
+                val ownerClass = descToInternalName(resolveOnStackClass(insn, env, location))
+                    ?: return env.addDiagnostic(UnresolvableReflectionMethod(location)).run { null }
                 return MethodReference(ownerClass, methodName, methodArgs.joinToString("", "(", ")"))
             }
         }
         return null
     }
 
-    internal fun resolveOnStackClass(insn: InsnContainer): String? {
+    internal fun resolveOnStackClass(insn: InsnContainer, env: ComputeReferenceEnvironment, location: Location): String? {
         when (insn.getOrNull()?.opcode ?: return null) {
             LDC -> {
                 return ((insn.getAndPrev() as? LdcInsnNode)?.cst as? Type)
@@ -295,13 +301,16 @@ internal object ExtraReferenceDetector {
                 ) {
                     when (insnNode.desc) {
                         "(L${"java/lang/String"};)L${"java/lang/Class"};" -> {
-                            val ldc = ldcString(insn) ?: return null
+                            val ldc = ldcString(insn)
+                                ?: return env.addDiagnostic(UnresolvableReflectionClass(location)).run { null }
                             return "L${ldc.replace('.', '/')};"
                         }
                         "(L${"java/lang/String"};BL${"java/lang/ClassLoader"};)L${"java/lang/Class"};" -> {
                             // skip ClassLoader and Boolean
-                            skipValues(insn, 2) ?: return null
-                            val ldc = ldcString(insn) ?: return null
+                            skipValues(insn, 2)
+                                ?: return env.addDiagnostic(UnresolvableReflectionClass(location)).run { null }
+                            val ldc = ldcString(insn)
+                                ?: return env.addDiagnostic(UnresolvableReflectionClass(location)).run { null }
                             return "L${ldc.replace('.', '/')};"
                         }
                     }
@@ -314,13 +323,16 @@ internal object ExtraReferenceDetector {
                 ) {
                     when (insnNode.desc) {
                         "(L${"java/lang/String"};)L${"java/lang/Class"};" -> {
-                            val ldc = ldcString(insn) ?: return null
+                            val ldc = ldcString(insn)
+                                ?: return env.addDiagnostic(UnresolvableReflectionClass(location)).run { null }
                             return "L${ldc.replace('.', '/')};"
                         }
                         "(L${"java/lang/String"};B)L${"java/lang/Class"};" -> {
                             // skip boolean
-                            skipValues(insn, 1) ?: return null
-                            val ldc = ldcString(insn) ?: return null
+                            skipValues(insn, 1)
+                                ?: return env.addDiagnostic(UnresolvableReflectionClass(location)).run { null }
+                            val ldc = ldcString(insn)
+                                ?: return env.addDiagnostic(UnresolvableReflectionClass(location)).run { null }
                             return "L${ldc.replace('.', '/')};"
                         }
                     }
@@ -330,12 +342,12 @@ internal object ExtraReferenceDetector {
         return null
     }
 
-    internal fun resolveOnStackClassArray(insn: InsnContainer): List<String>? {
+    internal fun resolveOnStackClassArray(insn: InsnContainer, env: ComputeReferenceEnvironment, location: Location): List<String>? {
         val classes = arrayListOf<String?>()
 
         while (insn.has() && insn.get().opcode == AASTORE) {
             insn.prev()
-            val classDesc = resolveOnStackClass(insn) ?: return null
+            val classDesc = resolveOnStackClass(insn, env, location) ?: return null
             val index = loadInt(insn) ?: return null
             if (insn.getAndPrev()?.opcode != DUP) return null
             while (classes.size <= index) classes.add(null)

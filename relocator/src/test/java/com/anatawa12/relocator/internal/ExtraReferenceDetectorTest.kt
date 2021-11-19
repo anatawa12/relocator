@@ -12,20 +12,23 @@ import org.objectweb.asm.Type
 import org.objectweb.asm.tree.*
 
 internal class ExtraReferenceDetectorTest {
+    val env = TestingComputeReferenceEnvironment()
+    val location = Location.None
+
     @Test
     fun detectExtraMethodReference() {
-        detectExtraReference(stringFormat.last) `should be equal to` MethodReference(
+        detectExtraReference(stringFormat.last, env, location) `should be equal to` MethodReference(
             "java/lang/String",
             "format",
             "(Ljava/util/Locale;Ljava/lang/String;[Ljava/lang/Object;)")
-        detectExtraReference(stringIndexOf.last) `should be equal to` MethodReference(
+        detectExtraReference(stringIndexOf.last, env, location) `should be equal to` MethodReference(
             "java/lang/String",
             "indexOf",
             "(I)")
     }
     @Test
     fun detectExtraFieldReference() {
-        detectExtraReference(stringCaseInsensitiveOrder.last) `should be equal to` FieldReference(
+        detectExtraReference(stringCaseInsensitiveOrder.last, env, location) `should be equal to` FieldReference(
             "java/lang/String",
             "CASE_INSENSITIVE_ORDER",
             null)
@@ -33,23 +36,23 @@ internal class ExtraReferenceDetectorTest {
 
     @Test
     fun resolveOnStackClass() {
-        resolveOnStackClass(InsnContainer.get(simpleReflectionString.last)) `should be equal to`
+        resolveOnStackClass(InsnContainer.get(simpleReflectionString.last), env, location) `should be equal to`
                 "L${"java/lang/String"};"
-        resolveOnStackClass(InsnContainer.get(withClassLoaderReflectionString.last)) `should be equal to`
+        resolveOnStackClass(InsnContainer.get(withClassLoaderReflectionString.last), env, location) `should be equal to`
                 "L${"java/lang/String"};"
-        resolveOnStackClass(InsnContainer.get(loadClassFunctionReflectionString.last)) `should be equal to`
+        resolveOnStackClass(InsnContainer.get(loadClassFunctionReflectionString.last), env, location) `should be equal to`
                 "L${"java/lang/String"};"
         resolveOnStackClass(InsnContainer.get(FieldInsnNode(GETSTATIC, 
             "java/lang/Integer", 
             "TYPE", 
-            "Ljava/lang/Class;"))) `should be equal to` "I"
+            "Ljava/lang/Class;")), env, location) `should be equal to` "I"
     }
 
     @Test
     fun resolveOnStackClassArray() {
-        resolveOnStackClassArray(InsnContainer.get(localeStringObjectClassList.last)) `should be equal to`
+        resolveOnStackClassArray(InsnContainer.get(localeStringObjectClassList.last), env, location) `should be equal to`
                 listOf("Ljava/util/Locale;", "Ljava/lang/String;", "[Ljava/lang/Object;")
-        resolveOnStackClassArray(InsnContainer.get(intClassList.last)) `should be equal to`
+        resolveOnStackClassArray(InsnContainer.get(intClassList.last), env, location) `should be equal to`
                 listOf("I")
     }
 

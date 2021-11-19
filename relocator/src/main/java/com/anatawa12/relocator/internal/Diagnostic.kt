@@ -20,6 +20,18 @@ class UnresolvableInnerClass(val outer: String, val inner: String, location: Loc
     override fun message() = "the internal name of '$outer.$inner' not found."
 }
 
+class UnresolvableReflectionClass(location: Location) : Warning(location) {
+    override fun message() = "Unresolvable reflection call for class found."
+}
+
+class UnresolvableReflectionField(location: Location) : Warning(location) {
+    override fun message() = "Unresolvable reflection call for field found."
+}
+
+class UnresolvableReflectionMethod(location: Location) : Warning(location) {
+    override fun message() = "Unresolvable reflection call for method found."
+}
+
 class UnresolvableClassError(val name: String, location: Location) : Error(location) {
     internal constructor(ref: ClassReference, location: Location) :
             this(ref.name, location)
