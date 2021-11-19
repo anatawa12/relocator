@@ -182,10 +182,16 @@ class Relocator {
                         .forEach { it.await() }
                 }
                 is MethodReference -> {
+                    if (reference.owner[0] == '[' && isArrayMethod(reference)) return
                     collectReferencesOf(classpath.findMethod(reference)
                         ?: return addDiagnostic(UnresolvableMethodError(reference, reference.location ?: Location.None)))
                 }
             }
+        }
+
+        private suspend fun isArrayMethod(reference: MethodReference): Boolean {
+            val objectClass = classpath.findClass("java/lang/Object") ?: return false
+            return objectClass.findMethod(reference) != null
         }
 
         private suspend fun collectReferencesOf(classFile: ClassFile) = coroutineScope {
