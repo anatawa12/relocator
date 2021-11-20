@@ -113,12 +113,10 @@ class Relocator {
         lateinit var embeds: EmbeddableClassPath
         lateinit var roots: EmbeddableClassPath
         lateinit var classpath: CombinedClassPath
-        val externalClasses = ConcurrentLinkedQueue<ClassFile>()
 
         suspend fun run(): Unit = coroutineScope {
             refers = ReferencesClassPath(referPath) {
                 computeReferencesForLibrary()
-                externalClasses += this
             }
             embeds = EmbeddableClassPath(embedPath)
             roots = EmbeddableClassPath(rootPath)
@@ -163,11 +161,7 @@ class Relocator {
                         }
                     }
                 }
-            val externals = externalClasses.toList().asSequence().map {
-                references.add(ClassReference(it.name))
-                async { collectReferencesOf(it) }
-            }
-            (rootClasses + externals).forEach { it.await() }
+            (rootClasses).forEach { it.await() }
         }
 
         private suspend fun collectReferencesOf(reference: Reference) {
