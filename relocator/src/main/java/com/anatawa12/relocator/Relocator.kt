@@ -171,7 +171,6 @@ class Relocator {
         }
 
         private suspend fun collectReferencesOf(reference: Reference) {
-            // TODO: For fields/methods, we need to search for parent classes/interfaces
             when (reference) {
                 is ClassReference -> collectReferencesOf(classpath.findClass(reference)
                     ?: return addDiagnostic(UnresolvableClassError(reference, reference.location ?: Location.None)))
