@@ -10,6 +10,7 @@ import java.io.File
 import java.nio.channels.CompletionHandler
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.function.Function
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.CoroutineContext
@@ -112,7 +113,7 @@ class Relocator {
         lateinit var embeds: EmbeddableClassPath
         lateinit var roots: EmbeddableClassPath
         lateinit var classpath: CombinedClassPath
-        val externalClasses = mutableListOf<ClassFile>()
+        val externalClasses = ConcurrentLinkedQueue<ClassFile>()
 
         suspend fun run(): Unit = coroutineScope {
             refers = ReferencesClassPath(referPath) {
@@ -162,7 +163,7 @@ class Relocator {
                         }
                     }
                 }
-            val externals = externalClasses.asSequence().map {
+            val externals = externalClasses.toList().asSequence().map {
                 references.add(ClassReference(it.name))
                 async { collectReferencesOf(it) }
             }
