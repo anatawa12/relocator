@@ -111,7 +111,7 @@ internal suspend fun computeReferencesOfMethod(
     // additional: owner class
     fromInternalName(owner.name)?.let(::add)
     // additional: parent class's method to current one
-    if (main.name != "<init>" && main.name != "<clinit>" && (main.access and ACC_PRIVATE) != 0) {
+    if (main.name != "<init>" && main.name != "<clinit>" && (main.access and ACC_PRIVATE) == 0) {
         val refToThisMethod = MethodReference(owner.name, main.name, main.desc)
         ParentClasses(env, owner).forEach { parentClass ->
             val parentMethod = parentClass.findMethod(main.name, main.desc) ?: return@forEach true
