@@ -1,16 +1,11 @@
 package com.anatawa12.relocator
 
 import com.anatawa12.relocator.internal.*
-import com.anatawa12.relocator.internal.ClassFile
-import com.anatawa12.relocator.internal.ComputeReferenceEnvironment
-import com.anatawa12.relocator.internal.EmbeddableClassPath
-import com.anatawa12.relocator.internal.ReferencesClassPath
 import kotlinx.coroutines.*
 import java.io.File
 import java.nio.channels.CompletionHandler
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.function.Function
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.CoroutineContext
@@ -129,7 +124,7 @@ class Relocator {
             val computeReferenceEnv = ComputeReferenceEnvironmentImpl(classpath)
 
             // first step: computeReferences
-            (embeds.classes.asSequence() + roots.classes).map {
+            (embeds.classes + roots.classes).map {
                 launch { it.computeReferences(computeReferenceEnv) }
             }.forEach { it.join() }
 
@@ -145,23 +140,28 @@ class Relocator {
         private val references = Collections.newSetFromMap<Reference>(ConcurrentHashMap())
 
         private suspend fun collectReferences() = coroutineScope {
-            val rootClasses = roots.classes
-                .asSequence()
-                .flatMap {
-                    references.add(ClassReference(it.name))
-                    sequence {
-                        yield(async { collectReferencesOf(it) })
-                        for (method in it.methods) {
-                            references.add(MethodReference(it.name, method.main.name, method.main.desc))
-                            yield(async { collectReferencesOf(method) })
-                        }
-                        for (field in it.fields) {
-                            references.add(FieldReference(it.name, field.main.name, field.main.desc))
-                            yield(async { collectReferencesOf(field) })
-                        }
-                    }
+            roots.classes.map {
+                async {
+                    val deferredList = ArrayList<Deferred<Unit>>(1 + it.methods.size + it.fields.size)
+                    deferredList.add(async { collectReferencesOf(ClassReference(it.name)) })
+                    for (method in it.methods)
+                        deferredList.add(async { collectReferencesOf(MethodReference(it.name, method.main.name, method.main.desc)) })
+                    for (field in it.fields)
+                        deferredList.add(async { collectReferencesOf(FieldReference(it.name, field.main.name, field.main.desc)) })
+                    deferredList.forEach { it.await() }
                 }
-            (rootClasses).forEach { it.await() }
+            }.forEach { it.await() }
+        }
+
+        private suspend fun collectReferencesOf(refs: Iterable<Reference>, location: Location) = coroutineScope {
+            val deferredList = mutableListOf<Deferred<Unit>>()
+            for (ref in refs) {
+                if (references.add(ref)) {
+                    ref.withLocation(location)
+                    deferredList += async { collectReferencesOf(ref) }
+                }
+            }
+            for (deferred in deferredList) deferred.await()
         }
 
         private suspend fun collectReferencesOf(reference: Reference) {
@@ -190,35 +190,17 @@ class Relocator {
 
         private suspend fun collectReferencesOf(classFile: ClassFile) = coroutineScope {
             classFile.included = true
-            val location = Location.Class(classFile.name)
-            classFile.allReferences
-                .asSequence()
-                .filter { references.add(it) }
-                .onEach { it.withLocation(location) }
-                .map { async { collectReferencesOf(it) } }
-                .forEach { it.await() }
+            collectReferencesOf(classFile.allReferences, Location.Class(classFile.name))
         }
 
         private suspend fun collectReferencesOf(field: ClassField) = coroutineScope {
             field.included = true
-            val location = Location.Field(field.owner.name, field.main)
-            field.allReferences
-                .asSequence()
-                .filter { references.add(it) }
-                .onEach { it.withLocation(location) }
-                .map { async { collectReferencesOf(it) } }
-                .forEach { it.await() }
+            collectReferencesOf(field.allReferences, Location.Field(field.owner.name, field.main))
         }
 
         private suspend fun collectReferencesOf(method: ClassMethod) = coroutineScope {
             method.included = true
-            val location = Location.Method(method.owner.name, method.main)
-            method.allReferences
-                .asSequence()
-                .filter { references.add(it) }
-                .onEach { it.withLocation(location) }
-                .map { async { collectReferencesOf(it) } }
-                .forEach { it.await() }
+            collectReferencesOf(method.allReferences, Location.Method(method.owner.name, method.main))
         }
 
         fun addDiagnostic(diagnostic: Diagnostic) {
