@@ -1,5 +1,5 @@
 plugins {
-    kotlin("jvm") version "1.5.10" apply false
+    kotlin("jvm") version "1.6.0" apply false
 }
 
 group = "com.anatawa12.relocator"
