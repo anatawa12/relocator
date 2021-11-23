@@ -139,32 +139,34 @@ class Relocator {
 
         private val references = Collections.newSetFromMap<Reference>(ConcurrentHashMap())
 
-        private suspend fun collectReferences() = coroutineScope {
-            roots.classes.map {
-                async {
-                    val deferredList = ArrayList<Deferred<Unit>>(1 + it.methods.size + it.fields.size)
-                    deferredList.add(async { collectReferencesOf(ClassReference(it.name)) })
-                    for (method in it.methods)
-                        deferredList.add(async { collectReferencesOf(MethodReference(it.name, method.main.name, method.main.desc)) })
-                    for (field in it.fields)
-                        deferredList.add(async { collectReferencesOf(FieldReference(it.name, field.main.name, field.main.desc)) })
-                    deferredList.forEach { it.await() }
+        private suspend fun collectReferences() = TaskQueue {
+            for (classFile in roots.classes) {
+                start {
+                    startCollectReferencesOf(ClassReference(classFile.name))
+                    for (method in classFile.methods)
+                        startCollectReferencesOf(MethodReference(classFile.name,
+                            method.main.name,
+                            method.main.desc))
+                    for (field in classFile.fields)
+                        startCollectReferencesOf(FieldReference(classFile.name, field.main.name, field.main.desc))
                 }
-            }.forEach { it.await() }
+            }
         }
 
-        private suspend fun collectReferencesOf(refs: Iterable<Reference>, location: Location) = coroutineScope {
-            val deferredList = mutableListOf<Deferred<Unit>>()
+        private fun TaskQueue.collectReferencesOf(refs: Iterable<Reference>, location: Location) {
             for (ref in refs) {
                 if (references.add(ref)) {
                     ref.withLocation(location)
-                    deferredList += async { collectReferencesOf(ref) }
+                    startCollectReferencesOf(ref)
                 }
             }
-            for (deferred in deferredList) deferred.await()
         }
 
-        private suspend fun collectReferencesOf(reference: Reference) {
+        private fun TaskQueue.startCollectReferencesOf(reference: Reference) {
+            start { collectReferencesOf(reference) }
+        }
+
+        private suspend fun TaskQueue.collectReferencesOf(reference: Reference) {
             when (reference) {
                 is ClassReference -> collectReferencesOf(classpath.findClass(reference)
                     ?: return addDiagnostic(UnresolvableClassError(reference, reference.location ?: Location.None)))
@@ -172,8 +174,7 @@ class Relocator {
                     val fields = classpath.findFields(reference)
                     if (fields.isEmpty())
                         return addDiagnostic(UnresolvableFieldError(reference, reference.location ?: Location.None))
-                    coroutineScope { fields.map { async { collectReferencesOf(it) } } }
-                        .forEach { it.await() }
+                    fields.forEach { start { collectReferencesOf(it) } }
                 }
                 is MethodReference -> {
                     if (reference.owner[0] == '[' && isArrayMethod(reference)) return
@@ -188,17 +189,17 @@ class Relocator {
             return objectClass.findMethod(reference) != null
         }
 
-        private suspend fun collectReferencesOf(classFile: ClassFile) = coroutineScope {
+        private fun TaskQueue.collectReferencesOf(classFile: ClassFile) {
             classFile.included = true
             collectReferencesOf(classFile.allReferences, Location.Class(classFile.name))
         }
 
-        private suspend fun collectReferencesOf(field: ClassField) = coroutineScope {
+        private fun TaskQueue.collectReferencesOf(field: ClassField) {
             field.included = true
             collectReferencesOf(field.allReferences, Location.Field(field.owner.name, field.main))
         }
 
-        private suspend fun collectReferencesOf(method: ClassMethod) = coroutineScope {
+        private fun TaskQueue.collectReferencesOf(method: ClassMethod) {
             method.included = true
             collectReferencesOf(method.allReferences, Location.Method(method.owner.name, method.main))
         }
