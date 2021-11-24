@@ -103,11 +103,86 @@ class Relocator {
         }
     }
 
+    private class ReferencesCollectContextImpl(
+        override val roots: EmbeddableClassPath,
+        override val classpath: CombinedClassPath,
+        private val queue: TaskQueue,
+        // TODO: make addDiagnostic as a single interface
+        private val addDiagnostic: (Diagnostic) -> Unit,
+    ) : ReferencesCollectContext() {
+        private val references = Collections.newSetFromMap<Reference>(ConcurrentHashMap())
+
+        override fun runChildThread(run: ReferencesCollectContext.() -> Unit) {
+            queue.start { run() }
+        }
+
+        override fun collectReferencesOf(reference: Reference, location: Location?) {
+            if (!references.add(reference)) return
+            if (reference.location == null)
+                reference.withLocation(location ?: Location.None)
+            queue.start {
+                when (reference) {
+                    is ClassReference -> collectReferencesOf(classpath.findClass(reference)
+                        ?: return@start addDiagnostic(UnresolvableClassError(reference, reference.location ?: Location.None)))
+                    is FieldReference -> {
+                        val fields = classpath.findFields(reference)
+                        if (fields.isEmpty())
+                            return@start addDiagnostic(UnresolvableFieldError(reference, reference.location ?: Location.None))
+                        fields.forEach { start { collectReferencesOf(it) } }
+                    }
+                    is MethodReference -> {
+                        if (reference.owner[0] == '[' && isArrayMethod(reference))
+                            return@start
+                        collectReferencesOf(classpath.findMethod(reference)
+                            ?: return@start addDiagnostic(UnresolvableMethodError(reference, reference.location ?: Location.None)))
+                    }
+                }
+            }
+        }
+
+        private suspend fun isArrayMethod(reference: MethodReference): Boolean {
+            val objectClass = classpath.findClass("java/lang/Object") ?: return false
+            return objectClass.findMethod(reference) != null
+        }
+
+        private fun collectReferencesOf(classFile: ClassFile) {
+            classFile.included = true
+            collectReferencesOf(classFile.allReferences, Location.Class(classFile.name))
+        }
+
+        private fun collectReferencesOf(field: ClassField) {
+            field.included = true
+            collectReferencesOf(field.allReferences, Location.Field(field.owner.name, field.main))
+        }
+
+        private fun collectReferencesOf(method: ClassMethod) {
+            method.included = true
+            collectReferencesOf(method.allReferences, Location.Method(method.owner.name, method.main))
+        }
+    }
+
+    private object DefaultCollector : ReferenceCollector {
+        override fun ReferencesCollectContext.collect() {
+            for (classFile in roots.classes) {
+                collectReferencesOf(ClassReference(classFile.name))
+                for (method in classFile.methods)
+                    collectReferencesOf(MethodReference(classFile.name,
+                        method.main.name,
+                        method.main.desc))
+                for (field in classFile.fields)
+                    collectReferencesOf(FieldReference(classFile.name, field.main.name, field.main.desc))
+            }
+        }
+    }
+
     private inner class RelocatingEnvironment {
         lateinit var refers: ReferencesClassPath
         lateinit var embeds: EmbeddableClassPath
         lateinit var roots: EmbeddableClassPath
         lateinit var classpath: CombinedClassPath
+        private val collectors = listOf<ReferenceCollector>(
+            DefaultCollector,
+        )
 
         suspend fun run(): Unit = coroutineScope {
             refers = ReferencesClassPath(referPath) {
@@ -137,71 +212,16 @@ class Relocator {
             
         }
 
-        private val references = Collections.newSetFromMap<Reference>(ConcurrentHashMap())
-
         private suspend fun collectReferences() = TaskQueue {
-            for (classFile in roots.classes) {
-                start {
-                    startCollectReferencesOf(ClassReference(classFile.name))
-                    for (method in classFile.methods)
-                        startCollectReferencesOf(MethodReference(classFile.name,
-                            method.main.name,
-                            method.main.desc))
-                    for (field in classFile.fields)
-                        startCollectReferencesOf(FieldReference(classFile.name, field.main.name, field.main.desc))
-                }
+            val context = ReferencesCollectContextImpl(
+                roots,
+                classpath,
+                this,
+                ::addDiagnostic,
+            )
+            for (collector in collectors) {
+                start { collector.apply { context.collect() } }
             }
-        }
-
-        private fun TaskQueue.collectReferencesOf(refs: Iterable<Reference>, location: Location) {
-            for (ref in refs) {
-                if (references.add(ref)) {
-                    ref.withLocation(location)
-                    startCollectReferencesOf(ref)
-                }
-            }
-        }
-
-        private fun TaskQueue.startCollectReferencesOf(reference: Reference) {
-            start { collectReferencesOf(reference) }
-        }
-
-        private suspend fun TaskQueue.collectReferencesOf(reference: Reference) {
-            when (reference) {
-                is ClassReference -> collectReferencesOf(classpath.findClass(reference)
-                    ?: return addDiagnostic(UnresolvableClassError(reference, reference.location ?: Location.None)))
-                is FieldReference -> {
-                    val fields = classpath.findFields(reference)
-                    if (fields.isEmpty())
-                        return addDiagnostic(UnresolvableFieldError(reference, reference.location ?: Location.None))
-                    fields.forEach { start { collectReferencesOf(it) } }
-                }
-                is MethodReference -> {
-                    if (reference.owner[0] == '[' && isArrayMethod(reference)) return
-                    collectReferencesOf(classpath.findMethod(reference)
-                        ?: return addDiagnostic(UnresolvableMethodError(reference, reference.location ?: Location.None)))
-                }
-            }
-        }
-
-        private suspend fun isArrayMethod(reference: MethodReference): Boolean {
-            val objectClass = classpath.findClass("java/lang/Object") ?: return false
-            return objectClass.findMethod(reference) != null
-        }
-
-        private fun TaskQueue.collectReferencesOf(classFile: ClassFile) {
-            classFile.included = true
-            collectReferencesOf(classFile.allReferences, Location.Class(classFile.name))
-        }
-
-        private fun TaskQueue.collectReferencesOf(field: ClassField) {
-            field.included = true
-            collectReferencesOf(field.allReferences, Location.Field(field.owner.name, field.main))
-        }
-
-        private fun TaskQueue.collectReferencesOf(method: ClassMethod) {
-            method.included = true
-            collectReferencesOf(method.allReferences, Location.Method(method.owner.name, method.main))
         }
 
         fun addDiagnostic(diagnostic: Diagnostic) {
