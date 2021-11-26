@@ -1,13 +1,22 @@
 @file:JvmName("ReferenceComputer")
 package com.anatawa12.relocator.internal
 
+import com.anatawa12.relocator.classes.ClassFile
+import com.anatawa12.relocator.classes.CombinedClassPath
+import com.anatawa12.relocator.classes.findField
+import com.anatawa12.relocator.classes.findMethod
+import com.anatawa12.relocator.diagostic.*
 import com.anatawa12.relocator.internal.ClassRefCollectingAnnotationVisitor.Utils.acceptAnnotations
 import com.anatawa12.relocator.internal.ClassRefCollectingAnnotationVisitor.Utils.acceptValue
 import com.anatawa12.relocator.internal.ClassRefCollectingSignatureVisitor.Utils.acceptSignature
-import com.anatawa12.relocator.internal.Reference.Utils.fromDescriptor
-import com.anatawa12.relocator.internal.Reference.Utils.fromHandle
-import com.anatawa12.relocator.internal.Reference.Utils.fromInternalName
-import com.anatawa12.relocator.internal.Reference.Utils.fromType
+import com.anatawa12.relocator.reference.ClassReference
+import com.anatawa12.relocator.reference.FieldReference
+import com.anatawa12.relocator.reference.MethodReference
+import com.anatawa12.relocator.reference.Reference
+import com.anatawa12.relocator.reference.Reference.Utils.fromDescriptor
+import com.anatawa12.relocator.reference.Reference.Utils.fromHandle
+import com.anatawa12.relocator.reference.Reference.Utils.fromInternalName
+import com.anatawa12.relocator.reference.Reference.Utils.fromType
 import org.objectweb.asm.*
 import org.objectweb.asm.Opcodes.*
 import org.objectweb.asm.signature.SignatureReader
@@ -73,7 +82,7 @@ internal fun computeReferencesOfClass(
 }
 
 internal suspend fun computeReferencesOfMethod(
-    env: ComputeReferenceEnvironment, 
+    env: ComputeReferenceEnvironment,
     main: MethodNode,
     owner: ClassFile,
 ) = buildSet<Reference> {

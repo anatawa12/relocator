@@ -1,8 +1,9 @@
 package com.anatawa12.relocator.internal
 
+import com.anatawa12.relocator.diagostic.Location
+import com.anatawa12.relocator.reference.ClassReference
 import org.amshove.kluent.*
 import org.junit.jupiter.api.Test
-import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.InnerClassNode
 
 internal class ClassRefCollectingSignatureVisitorTest {

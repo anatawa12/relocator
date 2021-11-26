@@ -1,5 +1,7 @@
 package com.anatawa12.relocator.internal
 
+import com.anatawa12.relocator.classes.CombinedClassPath
+import com.anatawa12.relocator.diagostic.Diagnostic
 import java.lang.RuntimeException
 
 internal class TestingComputeReferenceEnvironment(

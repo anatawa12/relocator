@@ -1,6 +1,19 @@
 package com.anatawa12.relocator
 
+import com.anatawa12.relocator.classes.*
+import com.anatawa12.relocator.classes.ClassField
+import com.anatawa12.relocator.classes.ClassFile
+import com.anatawa12.relocator.classes.ClassMethod
+import com.anatawa12.relocator.classes.CombinedClassPath
+import com.anatawa12.relocator.internal.EmbeddableClassPath
+import com.anatawa12.relocator.internal.ReferencesClassPath
+import com.anatawa12.relocator.diagostic.*
 import com.anatawa12.relocator.internal.*
+import com.anatawa12.relocator.reference.*
+import com.anatawa12.relocator.reference.ClassReference
+import com.anatawa12.relocator.reference.FieldReference
+import com.anatawa12.relocator.reference.MethodReference
+import com.anatawa12.relocator.reference.Reference
 import kotlinx.coroutines.*
 import java.io.File
 import java.nio.channels.CompletionHandler

@@ -1,9 +1,12 @@
 package com.anatawa12.relocator.internal
 
+import com.anatawa12.relocator.diagostic.Location
 import com.anatawa12.relocator.internal.ExtraReferenceDetector.InsnContainer
 import com.anatawa12.relocator.internal.ExtraReferenceDetector.detectExtraReference
 import com.anatawa12.relocator.internal.ExtraReferenceDetector.resolveOnStackClass
 import com.anatawa12.relocator.internal.ExtraReferenceDetector.resolveOnStackClassArray
+import com.anatawa12.relocator.reference.FieldReference
+import com.anatawa12.relocator.reference.MethodReference
 
 import org.amshove.kluent.*
 import org.junit.jupiter.api.Test

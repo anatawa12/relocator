@@ -1,16 +1,25 @@
-package com.anatawa12.relocator.internal
+package com.anatawa12.relocator.classes
 
+import com.anatawa12.relocator.internal.ComputeReferenceEnvironment
+import com.anatawa12.relocator.internal.computeReferencesOfClass
+import com.anatawa12.relocator.internal.computeReferencesOfField
+import com.anatawa12.relocator.internal.computeReferencesOfMethod
+import com.anatawa12.relocator.reference.ClassReference
+import com.anatawa12.relocator.reference.FieldReference
+import com.anatawa12.relocator.internal.InnerClassContainer
+import com.anatawa12.relocator.reference.MethodReference
+import com.anatawa12.relocator.reference.Reference
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.FieldNode
 import org.objectweb.asm.tree.MethodNode
 
-internal class ClassFile internal constructor(
+class ClassFile internal constructor(
     val main: ClassNode,
     val loader: ClassPath,
 ) {
     var included: Boolean = false
-    val innerClasses = InnerClassContainer(main.innerClasses)
+    internal val innerClasses = InnerClassContainer(main.innerClasses)
     lateinit var references: Set<Reference>
     val externalReferences = mutableSetOf<Reference>()
     val allReferences get() = references + externalReferences
@@ -23,7 +32,7 @@ internal class ClassFile internal constructor(
         fields = main.fields.map { ClassField(it, this) }
     }
 
-    suspend fun computeReferences(env: ComputeReferenceEnvironment) {
+    internal suspend fun computeReferences(env: ComputeReferenceEnvironment) {
         references = computeReferencesOfClass(env, this)
         methods.forEach { it.computeReferences(env) }
         fields.forEach { it.computeReferences(env) }
@@ -52,33 +61,33 @@ internal class ClassFile internal constructor(
     }
 }
 
-internal fun ClassFile.findMethod(ref: MethodReference): ClassMethod? =
+fun ClassFile.findMethod(ref: MethodReference): ClassMethod? =
     findMethod(ref.name, ref.descriptor)
-internal fun ClassFile.findMethod(name: String, desc: String): ClassMethod? =
+fun ClassFile.findMethod(name: String, desc: String): ClassMethod? =
     methods.firstOrNull { it.main.name == name && it.main.desc == desc }
-internal fun ClassFile.findFields(ref: FieldReference): List<ClassField> =
+fun ClassFile.findFields(ref: FieldReference): List<ClassField> =
     fields.filter { it.main.name == ref.name && (ref.descriptor == null || it.main.desc == ref.descriptor) }
-internal fun ClassFile.findField(name: String, desc: String): ClassField? =
+fun ClassFile.findField(name: String, desc: String): ClassField? =
     fields.firstOrNull { it.main.name == name && it.main.desc == desc }
 
-internal class ClassMethod internal constructor(val main: MethodNode, val owner: ClassFile) {
+class ClassMethod internal constructor(val main: MethodNode, val owner: ClassFile) {
     var included: Boolean = false
     lateinit var references: Set<Reference>
     val externalReferences = mutableSetOf<Reference>()
     val allReferences get() = references + externalReferences
 
-    suspend fun computeReferences(env: ComputeReferenceEnvironment) {
+    internal suspend fun computeReferences(env: ComputeReferenceEnvironment) {
         references = computeReferencesOfMethod(env, main, owner)
     }
 }
 
-internal class ClassField internal constructor(val main: FieldNode, val owner: ClassFile) {
+class ClassField internal constructor(val main: FieldNode, val owner: ClassFile) {
     var included: Boolean = false
     lateinit var references: Set<ClassReference>
     val externalReferences = mutableSetOf<Reference>()
     val allReferences get() = references + externalReferences
 
-    suspend fun computeReferences(env: ComputeReferenceEnvironment) {
+    internal suspend fun computeReferences(env: ComputeReferenceEnvironment) {
         references = computeReferencesOfField(env, main, owner)
     }
 }

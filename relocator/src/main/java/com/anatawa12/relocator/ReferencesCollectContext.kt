@@ -1,13 +1,13 @@
 package com.anatawa12.relocator
 
-import com.anatawa12.relocator.internal.*
-import com.anatawa12.relocator.internal.CombinedClassPath
-import com.anatawa12.relocator.internal.EmbeddableClassPath
-import com.anatawa12.relocator.internal.Reference
+import com.anatawa12.relocator.classes.ClassPath
+import com.anatawa12.relocator.diagostic.Location
+import com.anatawa12.relocator.classes.CombinedClassPath
+import com.anatawa12.relocator.reference.Reference
 
 // TODO: make public
-internal abstract class ReferencesCollectContext {
-    abstract val roots: EmbeddableClassPath
+abstract class ReferencesCollectContext {
+    abstract val roots: ClassPath
     abstract val classpath: CombinedClassPath
 
     abstract fun runChildThread(run: ReferencesCollectContext.() -> Unit)

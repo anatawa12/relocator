@@ -1,36 +1,14 @@
 package com.anatawa12.relocator.internal
 
+import com.anatawa12.relocator.classes.ClassFile
+import com.anatawa12.relocator.classes.ClassPath
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.File
 import java.io.FileNotFoundException
-import java.util.*
-import java.util.concurrent.ConcurrentHashMap
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
-
-internal abstract class ClassPath(files: List<File>) {
-    private val containers = files.map(ClassContainer::create)
-    val files = containers.flatMap { it.files }.toSet()
-
-    open suspend fun init() {
-    }
-
-    suspend fun loadFile(path: String): ByteArray? =
-        containers.firstNotNullOfOrNull { it.loadFile(path) }
-
-    protected val classTree = ConcurrentHashMap<String, ClassFile>()
-    suspend fun findClass(name: String): ClassFile? {
-        val dottedName = name.replace('/', '.')
-        return classTree[dottedName]
-            ?: loadClass(dottedName)
-                ?.also { classTree[dottedName] = it }
-    }
-
-    protected abstract suspend fun loadClass(name: String): ClassFile?
-}
 
 internal abstract class ClassContainer(val file: File) {
     val files: Set<String> by lazy { getPathList() }
@@ -85,8 +63,6 @@ internal abstract class ClassContainer(val file: File) {
 }
 
 internal class EmbeddableClassPath(files: List<File>): ClassPath(files) {
-    val classes: Collection<ClassFile> = Collections.unmodifiableCollection(classTree.values)
-
     override suspend fun init() {
         coroutineScope {
             files.asSequence()
@@ -112,34 +88,4 @@ internal class ReferencesClassPath(
         val path = name.replace('.', '/')
         return loadFile("$path.class")?.let { ClassFile.read(it, this, true) }?.apply(initializer)
     }
-}
-
-internal class CombinedClassPath(
-    val classpath: List<ClassPath>,
-) {
-    suspend fun findClass(name: String): ClassFile? =
-        classpath.firstNotNullOfOrNull { it.findClass(name) }
-    suspend fun findClass(ref: ClassReference): ClassFile? =
-        classpath.firstNotNullOfOrNull { it.findClass(ref.name) }
-
-    private suspend inline fun deepClasses(rootClass: String): Flow<ClassFile> = flow {
-        val classes = LinkedList<String>()
-        classes.add(rootClass)
-        while (classes.isNotEmpty()) {
-            val classFile = findClass(classes.removeFirst()) ?: continue
-            emit(classFile)
-            classFile.main.superName?.let(classes::addFirst)
-            classes.addAll(0, classFile.main.interfaces)
-        }
-    }
-
-    suspend fun findMethod(ref: MethodReference): ClassMethod? =
-        deepClasses(ref.owner)
-            .mapNotNull { it.findMethod(ref) }
-            .firstOrNull()
-
-    suspend fun findFields(ref: FieldReference): List<ClassField> = 
-        if (ref.descriptor != null)
-            listOfNotNull(deepClasses(ref.owner).mapNotNull { it.findField(ref.name, ref.descriptor) }.firstOrNull())
-        else deepClasses(ref.owner).flatMapConcat { it.findFields(ref).asFlow() }.toList()
 }

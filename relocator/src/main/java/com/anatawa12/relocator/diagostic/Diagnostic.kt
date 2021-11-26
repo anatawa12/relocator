@@ -1,5 +1,9 @@
-package com.anatawa12.relocator.internal
+package com.anatawa12.relocator.diagostic
 
+import com.anatawa12.relocator.classes.ClassFile
+import com.anatawa12.relocator.reference.ClassReference
+import com.anatawa12.relocator.reference.FieldReference
+import com.anatawa12.relocator.reference.MethodReference
 import org.objectweb.asm.tree.FieldNode
 import org.objectweb.asm.tree.LocalVariableNode
 import org.objectweb.asm.tree.MethodNode
