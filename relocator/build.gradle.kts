@@ -4,6 +4,8 @@ plugins {
     kotlin("jvm")
 }
 
+apply<kotlinx.atomicfu.plugin.gradle.AtomicFUGradlePlugin>()
+
 group = "com.anatawa12.relocator"
 version = "1.0-SNAPSHOT"
 
