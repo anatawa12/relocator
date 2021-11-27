@@ -9,7 +9,7 @@ import org.objectweb.asm.tree.InnerClassNode
 internal class ClassRefCollectingSignatureVisitorTest {
     fun test(signature: String?, vararg innerClasses: InnerClassNode): Set<ClassReference> {
         val container = InnerClassContainer(innerClasses.toList())
-        val env = TestingComputeReferenceEnvironment()
+        val env = newComputeReferenceEnvironment()
         val collection = hashSetOf<ClassReference>()
         ClassRefCollectingSignatureVisitor.acceptSignature(collection, env, container, signature, Location.Class(""))
         return collection

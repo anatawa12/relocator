@@ -25,12 +25,11 @@ import org.objectweb.asm.tree.*
 import org.objectweb.asm.tree.AbstractInsnNode.*
 import java.util.*
 
-internal abstract class ComputeReferenceEnvironment(
+internal class ComputeReferenceEnvironment(
     val keepRuntimeInvisibleAnnotation: Boolean,
     val classpath: CombinedClassPath,
-) {
-    abstract fun addDiagnostic(diagnostic: Diagnostic)
-}
+    val addDiagnostic: DiagnosticHandler,
+)
 
 internal fun computeReferencesOfClass(
     env: ComputeReferenceEnvironment,

@@ -8,7 +8,7 @@ import org.objectweb.asm.tree.AnnotationNode
 
 internal class ClassRefCollectingAnnotationVisitorTest {
     fun test(annotation: AnnotationNode): Set<ClassReference> {
-        val env = TestingComputeReferenceEnvironment()
+        val env = newComputeReferenceEnvironment()
         val collection = hashSetOf<ClassReference>()
         ClassRefCollectingAnnotationVisitor.acceptAnnotation(
             ClassRefCollectingAnnotationVisitor(collection, env), annotation)

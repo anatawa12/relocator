@@ -1,20 +1,11 @@
 package com.anatawa12.relocator.internal
 
 import com.anatawa12.relocator.classes.CombinedClassPath
-import com.anatawa12.relocator.diagostic.Diagnostic
-import java.lang.RuntimeException
 
-internal class TestingComputeReferenceEnvironment(
+internal fun newComputeReferenceEnvironment(
     keepRuntimeInvisibleAnnotation: Boolean = true,
-) : ComputeReferenceEnvironment(
+) = ComputeReferenceEnvironment(
     keepRuntimeInvisibleAnnotation,
     CombinedClassPath(emptyList()),
-) {
-    override fun addDiagnostic(diagnostic: Diagnostic) {
-        throw DiagnosticException(diagnostic)
-    }
-}
-
-class DiagnosticException(diagnostic: Diagnostic) : RuntimeException(
-    "diagnostic: $diagnostic"
+    ThrowingDiagnosticHandler,
 )

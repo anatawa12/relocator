@@ -1,5 +1,7 @@
 package com.anatawa12.relocator
 
+import com.anatawa12.relocator.diagostic.DiagnosticException
+import com.anatawa12.relocator.diagostic.DiagnosticHandler
 import com.anatawa12.relocator.internal.*
 import kotlinx.coroutines.*
 import java.io.File
@@ -79,6 +81,12 @@ class Relocator {
      * are [java.lang.annotation.RetentionPolicy.CLASS].
      */
     var keepRuntimeInvisibleAnnotation: Boolean = true
+
+    /**
+     * The function to handle diagnostics.
+     * By default, the DiagnosticHandler which throws [DiagnosticException] is set.
+     */
+    var diagnosticHandler: DiagnosticHandler = ThrowingDiagnosticHandler
 
     fun <A> run(attachment: A, callback: CompletionHandler<Void?, A>) {
         class ContinuationImpl : Continuation<Unit> {

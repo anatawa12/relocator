@@ -17,6 +17,7 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
     lateinit var embeds: EmbeddableClassPath
     lateinit var roots: EmbeddableClassPath
     lateinit var classpath: CombinedClassPath
+    val diagnosticHandler = InternalDiagnosticHandlerWrapper(relocator.diagnosticHandler)
     private val collectors = listOf<ReferenceCollector>(
         DefaultCollector,
     )
@@ -33,7 +34,11 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
             launch { roots.init() },
         ).forEach { it.join() }
         classpath = CombinedClassPath(listOf(roots, embeds, refers))
-        val computeReferenceEnv = ComputeReferenceEnvironmentImpl(classpath)
+        val computeReferenceEnv = ComputeReferenceEnvironment(
+            relocator.keepRuntimeInvisibleAnnotation,
+            classpath,
+            diagnosticHandler,
+        )
 
         // first step: computeReferences
         (embeds.classes + roots.classes).map {
@@ -54,26 +59,10 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
             roots,
             classpath,
             this,
-            ::addDiagnostic,
+            diagnosticHandler,
         )
         for (collector in collectors) {
             start { collector.apply { context.collect() } }
-        }
-    }
-
-    fun addDiagnostic(diagnostic: Diagnostic) {
-        // TODO
-        //println("diagnostic: $diagnostic")
-    }
-
-    inner class ComputeReferenceEnvironmentImpl(
-        classpath: CombinedClassPath,
-    ) : ComputeReferenceEnvironment(
-        relocator.keepRuntimeInvisibleAnnotation,
-        classpath,
-    ) {
-        override fun addDiagnostic(diagnostic: Diagnostic) {
-            this@RelocatingEnvironment.addDiagnostic(diagnostic)
         }
     }
 }
@@ -82,8 +71,7 @@ private class ReferencesCollectContextImpl(
     override val roots: EmbeddableClassPath,
     override val classpath: CombinedClassPath,
     private val queue: TaskQueue,
-    // TODO: make addDiagnostic as a single interface
-    private val addDiagnostic: (Diagnostic) -> Unit,
+    private val addDiagnostic: DiagnosticHandler,
 ) : ReferencesCollectContext() {
     private val references = Collections.newSetFromMap<Reference>(ConcurrentHashMap())
 

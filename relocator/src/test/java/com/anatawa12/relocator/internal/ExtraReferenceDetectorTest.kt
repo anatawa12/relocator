@@ -15,7 +15,7 @@ import org.objectweb.asm.Type
 import org.objectweb.asm.tree.*
 
 internal class ExtraReferenceDetectorTest {
-    val env = TestingComputeReferenceEnvironment()
+    val env = newComputeReferenceEnvironment()
     val location = Location.None
 
     @Test
