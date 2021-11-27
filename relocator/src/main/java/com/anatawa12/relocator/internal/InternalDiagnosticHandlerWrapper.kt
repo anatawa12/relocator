@@ -11,13 +11,15 @@ import kotlinx.atomicfu.atomic
 internal class InternalDiagnosticHandlerWrapper(
     val handler: DiagnosticHandler,
 ) : DiagnosticHandler {
-    private val errorCount = atomic(0)
-    private val warningCount = atomic(0)
+    private val _errorCount = atomic(0)
+    val errorCount get()= _errorCount.value
+    private val _warningCount = atomic(0)
+    val warningCount get()= _warningCount.value
 
     override fun handle(diagnostic: Diagnostic) {
         when (diagnostic) {
-            is Error -> errorCount.incrementAndGet()
-            is Warning -> warningCount.incrementAndGet()
+            is Error -> _errorCount.incrementAndGet()
+            is Warning -> _warningCount.incrementAndGet()
         }
         handler.handle(diagnostic)
     }

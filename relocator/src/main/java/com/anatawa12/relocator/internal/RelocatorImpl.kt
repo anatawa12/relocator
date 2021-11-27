@@ -33,6 +33,9 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
             launch { embeds.init() },
             launch { roots.init() },
         ).forEach { it.join() }
+
+        checkNoErrors()
+
         classpath = CombinedClassPath(listOf(roots, embeds, refers))
         val computeReferenceEnv = ComputeReferenceEnvironment(
             relocator.keepRuntimeInvisibleAnnotation,
@@ -45,13 +48,22 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
             launch { it.computeReferences(computeReferenceEnv) }
         }.forEach { it.join() }
 
+        checkNoErrors()
+
         // second step: collect references
         // collect all references for methods/classes.
         collectReferences()
 
+        checkNoErrors()
+
         // forth step: make a jar.
         // make a jar with relocation
 
+    }
+
+    private fun checkNoErrors() {
+        if (diagnosticHandler.errorCount != 0)
+            throw ErrorFoundException()
     }
 
     private suspend fun collectReferences() = TaskQueue {
