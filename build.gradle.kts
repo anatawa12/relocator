@@ -14,4 +14,12 @@ version = property("version").toString()
 subprojects {
     group = rootProject.group
     version = rootProject.version
+
+    afterEvaluate {
+        configure<JavaPluginExtension> {
+            toolchain {
+                languageVersion.set(JavaLanguageVersion.of(8))
+            }
+        }
+    }
 }
