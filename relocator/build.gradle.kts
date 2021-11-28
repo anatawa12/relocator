@@ -19,6 +19,7 @@ dependencies {
     implementation("org.ow2.asm:asm-util:9.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2")
 
+    testImplementation(kotlin("reflect"))
     testImplementation(platform("org.junit:junit-bom:5.8.1"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.amshove.kluent:kluent:1.68")
