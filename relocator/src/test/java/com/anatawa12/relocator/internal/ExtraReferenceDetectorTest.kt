@@ -1,6 +1,6 @@
 package com.anatawa12.relocator.internal
 
-import com.anatawa12.relocator.diagostic.Location
+import com.anatawa12.relocator.diagnostic.Location
 import com.anatawa12.relocator.internal.ExtraReferenceDetector.InsnContainer
 import com.anatawa12.relocator.internal.ExtraReferenceDetector.detectExtraReference
 import com.anatawa12.relocator.internal.ExtraReferenceDetector.resolveOnStackClass

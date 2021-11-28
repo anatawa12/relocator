@@ -1,4 +1,4 @@
-package com.anatawa12.relocator.diagostic
+package com.anatawa12.relocator.diagnostic
 
 import com.anatawa12.relocator.classes.ClassFile
 import org.objectweb.asm.tree.FieldNode

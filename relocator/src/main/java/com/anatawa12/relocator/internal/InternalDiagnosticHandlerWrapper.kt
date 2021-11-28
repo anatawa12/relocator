@@ -1,6 +1,6 @@
 package com.anatawa12.relocator.internal
 
-import com.anatawa12.relocator.diagostic.*
+import com.anatawa12.relocator.diagnostic.*
 import kotlinx.atomicfu.atomic
 
 /**

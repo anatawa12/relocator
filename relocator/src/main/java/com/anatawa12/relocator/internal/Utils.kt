@@ -1,7 +1,7 @@
 package com.anatawa12.relocator.internal
 
-import com.anatawa12.relocator.diagostic.Diagnostic
-import com.anatawa12.relocator.diagostic.DiagnosticHandler
+import com.anatawa12.relocator.diagnostic.Diagnostic
+import com.anatawa12.relocator.diagnostic.DiagnosticHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async

@@ -1,7 +1,7 @@
 package com.anatawa12.relocator
 
 import com.anatawa12.relocator.classes.ClassPath
-import com.anatawa12.relocator.diagostic.Location
+import com.anatawa12.relocator.diagnostic.Location
 import com.anatawa12.relocator.classes.CombinedClassPath
 import com.anatawa12.relocator.reference.Reference
 

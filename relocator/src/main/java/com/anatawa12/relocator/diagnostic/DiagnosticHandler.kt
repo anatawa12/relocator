@@ -1,4 +1,4 @@
-package com.anatawa12.relocator.diagostic
+package com.anatawa12.relocator.diagnostic
 
 fun interface DiagnosticHandler {
     fun handle(diagnostic: Diagnostic)

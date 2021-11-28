@@ -1,10 +1,9 @@
 package com.anatawa12.relocator.reference
 
-import com.anatawa12.relocator.diagostic.Location
+import com.anatawa12.relocator.diagnostic.Location
 import org.objectweb.asm.Handle
 import org.objectweb.asm.Opcodes.*
 import org.objectweb.asm.Type
-import org.objectweb.asm.tree.InnerClassNode
 
 sealed class Reference {
     var location: Location? = null

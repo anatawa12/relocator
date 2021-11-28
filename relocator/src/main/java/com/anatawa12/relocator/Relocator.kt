@@ -1,7 +1,7 @@
 package com.anatawa12.relocator
 
-import com.anatawa12.relocator.diagostic.DiagnosticException
-import com.anatawa12.relocator.diagostic.DiagnosticHandler
+import com.anatawa12.relocator.diagnostic.DiagnosticException
+import com.anatawa12.relocator.diagnostic.DiagnosticHandler
 import com.anatawa12.relocator.internal.*
 import kotlinx.coroutines.*
 import java.io.File
