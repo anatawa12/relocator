@@ -90,8 +90,8 @@ private class ReferencesCollectContextImpl(
 ) : ReferencesCollectContext() {
     private val references = Collections.newSetFromMap<Reference>(ConcurrentHashMap())
 
-    override fun runChildThread(run: ReferencesCollectContext.() -> Unit) {
-        queue.start { run() }
+    override fun runChildThread(run: ReferencesCollector) {
+        queue.start { run.run { run() } }
     }
 
     override fun collectReferencesOf(reference: Reference, location: Location?) {

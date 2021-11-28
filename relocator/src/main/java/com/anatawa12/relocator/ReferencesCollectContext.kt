@@ -10,7 +10,7 @@ abstract class ReferencesCollectContext {
     abstract val roots: ClassPath
     abstract val classpath: CombinedClassPath
 
-    abstract fun runChildThread(run: ReferencesCollectContext.() -> Unit)
+    abstract fun runChildThread(run: ReferencesCollector)
     fun collectReferencesOf(reference: Reference) = collectReferencesOf(reference, null)
     abstract fun collectReferencesOf(reference: Reference, location: Location?)
     fun collectReferencesOf(refs: Iterable<Reference>) = collectReferencesOf(refs, null)
@@ -18,5 +18,9 @@ abstract class ReferencesCollectContext {
         for (ref in refs) {
             collectReferencesOf(ref, location)
         }
+    }
+
+    fun interface ReferencesCollector {
+        fun ReferencesCollectContext.run()
     }
 }
