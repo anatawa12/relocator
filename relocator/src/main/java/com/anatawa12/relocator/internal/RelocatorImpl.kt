@@ -5,6 +5,9 @@ import com.anatawa12.relocator.ReferencesCollectContext
 import com.anatawa12.relocator.Relocator
 import com.anatawa12.relocator.classes.*
 import com.anatawa12.relocator.diagostic.*
+import com.anatawa12.relocator.diagostic.BasicDiagnostics.UNRESOLVABLE_CLASS
+import com.anatawa12.relocator.diagostic.BasicDiagnostics.UNRESOLVABLE_FIELD
+import com.anatawa12.relocator.diagostic.BasicDiagnostics.UNRESOLVABLE_METHOD
 import com.anatawa12.relocator.reference.*
 import com.anatawa12.relocator.reference.withLocation
 import kotlinx.coroutines.coroutineScope
@@ -98,18 +101,25 @@ private class ReferencesCollectContextImpl(
         queue.start {
             when (reference) {
                 is ClassReference -> collectReferencesOf(classpath.findClass(reference)
-                    ?: return@start addDiagnostic(UnresolvableClassError(reference, reference.location ?: Location.None)))
+                    ?: return@start addDiagnostic(UNRESOLVABLE_CLASS(reference.name,
+                        reference.location ?: Location.None)))
                 is FieldReference -> {
                     val fields = classpath.findFields(reference)
                     if (fields.isEmpty())
-                        return@start addDiagnostic(UnresolvableFieldError(reference, reference.location ?: Location.None))
+                        return@start addDiagnostic(UNRESOLVABLE_FIELD(reference.owner,
+                            reference.name,
+                            reference.descriptor,
+                            reference.location ?: Location.None))
                     fields.forEach { start { collectReferencesOf(it) } }
                 }
                 is MethodReference -> {
                     if (reference.owner[0] == '[' && isArrayMethod(reference))
                         return@start
                     collectReferencesOf(classpath.findMethod(reference)
-                        ?: return@start addDiagnostic(UnresolvableMethodError(reference, reference.location ?: Location.None)))
+                        ?: return@start addDiagnostic(UNRESOLVABLE_METHOD(reference.owner,
+                            reference.name,
+                            reference.descriptor,
+                            reference.location ?: Location.None)))
                 }
             }
         }

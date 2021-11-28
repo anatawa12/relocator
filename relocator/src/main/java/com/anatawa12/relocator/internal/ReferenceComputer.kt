@@ -6,6 +6,11 @@ import com.anatawa12.relocator.classes.CombinedClassPath
 import com.anatawa12.relocator.classes.findField
 import com.anatawa12.relocator.classes.findMethod
 import com.anatawa12.relocator.diagostic.*
+import com.anatawa12.relocator.diagostic.BasicDiagnostics.UNRESOLVABLE_CLASS
+import com.anatawa12.relocator.diagostic.BasicDiagnostics.UNRESOLVABLE_INNER_CLASS
+import com.anatawa12.relocator.diagostic.BasicDiagnostics.UNRESOLVABLE_REFLECTION_CLASS
+import com.anatawa12.relocator.diagostic.BasicDiagnostics.UNRESOLVABLE_REFLECTION_FIELD
+import com.anatawa12.relocator.diagostic.BasicDiagnostics.UNRESOLVABLE_REFLECTION_METHOD
 import com.anatawa12.relocator.internal.ClassRefCollectingAnnotationVisitor.Utils.acceptAnnotations
 import com.anatawa12.relocator.internal.ClassRefCollectingAnnotationVisitor.Utils.acceptValue
 import com.anatawa12.relocator.internal.ClassRefCollectingSignatureVisitor.Utils.acceptSignature
@@ -258,9 +263,9 @@ internal object ExtraReferenceDetector {
             ) {
                 val insn = InsnContainer.get(insnNode).prev()
                 val fieldName = ldcString(insn)
-                    ?: return env.addDiagnostic(UnresolvableReflectionField(location)).run { null }
+                    ?: return env.addDiagnostic(UNRESOLVABLE_REFLECTION_FIELD(location)).run { null }
                 val ownerClass = descToInternalName(resolveOnStackClass(insn, env, location))
-                    ?: return env.addDiagnostic(UnresolvableReflectionField(location)).run { null }
+                    ?: return env.addDiagnostic(UNRESOLVABLE_REFLECTION_FIELD(location)).run { null }
                 return FieldReference(ownerClass, fieldName, null)
             }
             if (insnNode.owner == "java/lang/Class"
@@ -269,11 +274,11 @@ internal object ExtraReferenceDetector {
             ) {
                 val insn = InsnContainer.get(insnNode).prev()
                 val methodArgs = resolveOnStackClassArray(insn, env, location)
-                    ?: return env.addDiagnostic(UnresolvableReflectionMethod(location)).run { null }
+                    ?: return env.addDiagnostic(UNRESOLVABLE_REFLECTION_METHOD(location)).run { null }
                 val methodName = ldcString(insn)
-                    ?: return env.addDiagnostic(UnresolvableReflectionMethod(location)).run { null }
+                    ?: return env.addDiagnostic(UNRESOLVABLE_REFLECTION_METHOD(location)).run { null }
                 val ownerClass = descToInternalName(resolveOnStackClass(insn, env, location))
-                    ?: return env.addDiagnostic(UnresolvableReflectionMethod(location)).run { null }
+                    ?: return env.addDiagnostic(UNRESOLVABLE_REFLECTION_METHOD(location)).run { null }
                 return MethodReference(ownerClass, methodName, methodArgs.joinToString("", "(", ")"))
             }
         }
@@ -310,15 +315,15 @@ internal object ExtraReferenceDetector {
                     when (insnNode.desc) {
                         "(L${"java/lang/String"};)L${"java/lang/Class"};" -> {
                             val ldc = ldcString(insn)
-                                ?: return env.addDiagnostic(UnresolvableReflectionClass(location)).run { null }
+                                ?: return env.addDiagnostic(UNRESOLVABLE_REFLECTION_CLASS(location)).run { null }
                             return "L${ldc.replace('.', '/')};"
                         }
                         "(L${"java/lang/String"};BL${"java/lang/ClassLoader"};)L${"java/lang/Class"};" -> {
                             // skip ClassLoader and Boolean
                             skipValues(insn, 2)
-                                ?: return env.addDiagnostic(UnresolvableReflectionClass(location)).run { null }
+                                ?: return env.addDiagnostic(UNRESOLVABLE_REFLECTION_CLASS(location)).run { null }
                             val ldc = ldcString(insn)
-                                ?: return env.addDiagnostic(UnresolvableReflectionClass(location)).run { null }
+                                ?: return env.addDiagnostic(UNRESOLVABLE_REFLECTION_CLASS(location)).run { null }
                             return "L${ldc.replace('.', '/')};"
                         }
                     }
@@ -332,15 +337,15 @@ internal object ExtraReferenceDetector {
                     when (insnNode.desc) {
                         "(L${"java/lang/String"};)L${"java/lang/Class"};" -> {
                             val ldc = ldcString(insn)
-                                ?: return env.addDiagnostic(UnresolvableReflectionClass(location)).run { null }
+                                ?: return env.addDiagnostic(UNRESOLVABLE_REFLECTION_CLASS(location)).run { null }
                             return "L${ldc.replace('.', '/')};"
                         }
                         "(L${"java/lang/String"};B)L${"java/lang/Class"};" -> {
                             // skip boolean
                             skipValues(insn, 1)
-                                ?: return env.addDiagnostic(UnresolvableReflectionClass(location)).run { null }
+                                ?: return env.addDiagnostic(UNRESOLVABLE_REFLECTION_CLASS(location)).run { null }
                             val ldc = ldcString(insn)
-                                ?: return env.addDiagnostic(UnresolvableReflectionClass(location)).run { null }
+                                ?: return env.addDiagnostic(UNRESOLVABLE_REFLECTION_CLASS(location)).run { null }
                             return "L${ldc.replace('.', '/')};"
                         }
                     }
@@ -601,7 +606,7 @@ internal class ClassRefCollectingSignatureVisitor private constructor(
         classType = classType?.let { classType ->
             val foundInner = innerClasses.findInner(classType, name)
             if (foundInner == null)
-                env.addDiagnostic(UnresolvableInnerClass(classType, name, location))
+                env.addDiagnostic(UNRESOLVABLE_INNER_CLASS(classType, name, location))
             foundInner
         }
     }
@@ -692,7 +697,7 @@ internal class ClassRefCollectingAnnotationVisitor(
 
 internal suspend fun ComputeReferenceEnvironment.findClassOrError(name: String, location: Location): ClassFile? {
     return classpath.findClass(name) ?: kotlin.run {
-        addDiagnostic(UnresolvableClassError(name, location))
+        addDiagnostic(UNRESOLVABLE_CLASS(name, location))
         null
     }
 }

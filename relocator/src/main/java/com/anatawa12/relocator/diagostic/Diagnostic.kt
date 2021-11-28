@@ -1,60 +1,77 @@
 package com.anatawa12.relocator.diagostic
 
 import com.anatawa12.relocator.classes.ClassFile
-import com.anatawa12.relocator.reference.ClassReference
-import com.anatawa12.relocator.reference.FieldReference
-import com.anatawa12.relocator.reference.MethodReference
 import org.objectweb.asm.tree.FieldNode
 import org.objectweb.asm.tree.LocalVariableNode
 import org.objectweb.asm.tree.MethodNode
 import org.objectweb.asm.tree.RecordComponentNode
 
-sealed class Diagnostic(val location: Location) {
+class Diagnostic internal constructor(
+    val type: BasicDiagnosticType,
+    val location: Location,
+    val parameters: Array<Any?>,
+) {
     override fun toString(): String {
         val inClass = location
         return "${message()} $inClass"
     }
-    abstract fun message(): String
+
+    fun message(): String = type.render(parameters)
 }
 
-abstract class Warning(location: Location) : Diagnostic(location)
-abstract class Error(location: Location) : Diagnostic(location)
-
-class UnresolvableInnerClass(val outer: String, val inner: String, location: Location) : Warning(location) {
-    override fun message() = "the internal name of '$outer.$inner' not found."
+enum class DiagnosticKind {
+    Warning,
+    Error,
 }
 
-class UnresolvableReflectionClass(location: Location) : Warning(location) {
-    override fun message() = "Unresolvable reflection call for class found."
+sealed class DiagnosticValueType<T> {
+    object String : DiagnosticValueType<kotlin.String>()
+    object Int : DiagnosticValueType<kotlin.Int>()
+
+    fun optional(): Optional<T> = Optional(this)
+
+    class Optional<T> internal constructor(val inner: DiagnosticValueType<T>) : DiagnosticValueType<T?>() {
+        override fun equals(other: Any?): Boolean {
+            if (other === null) return false
+            if (this === other) return true
+            if (other is Optional<*> && mostInner() == other.mostInner())
+                return true
+            return false
+        }
+
+        override fun hashCode(): kotlin.Int = mostInner().hashCode() + 1
+
+        private fun mostInner(): DiagnosticValueType<*> {
+            var cur = this as DiagnosticValueType<*>
+            while (cur is Optional<*>) cur = cur.inner
+            return cur
+        }
+    }
 }
 
-class UnresolvableReflectionField(location: Location) : Warning(location) {
-    override fun message() = "Unresolvable reflection call for field found."
+class DiagnosticBuilder<T> internal constructor(
+    internal val kind: DiagnosticKind,
+    internal val render: Any?,
+    internal val factory: (String, DiagnosticBuilder<T>) -> T,
+) {
+    internal fun create(name: String) = factory(name, this)
 }
 
-class UnresolvableReflectionMethod(location: Location) : Warning(location) {
-    override fun message() = "Unresolvable reflection call for method found."
-}
+object BasicDiagnostics : DiagnosticContainer() {
+    val UNRESOLVABLE_INNER_CLASS by warning(String, String) { outer, inner ->
+        "the internal name of '$outer.$inner' not found."
+    }
+    val UNRESOLVABLE_REFLECTION_CLASS by warning("Unresolvable reflection call for class found.")
+    val UNRESOLVABLE_REFLECTION_FIELD by warning("Unresolvable reflection call for field found.")
+    val UNRESOLVABLE_REFLECTION_METHOD by warning("Unresolvable reflection call for method found.")
 
-class UnresolvableClassError(val name: String, location: Location) : Error(location) {
-    internal constructor(ref: ClassReference, location: Location) :
-            this(ref.name, location)
-
-    override fun message() = "the class '$name' not found"
-}
-
-class UnresolvableFieldError(val owner: String, val name: String, val desc: String?, location: Location) : Error(location) {
-    internal constructor(ref: FieldReference, location: Location) :
-            this(ref.owner, ref.name, ref.descriptor, location)
-
-    override fun message() = "the field '$owner.$name${if (desc == null) "" else ":$desc"}' not found"
-}
-
-class UnresolvableMethodError(val owner: String, val name: String, val desc: String?, location: Location) : Error(location) {
-    internal constructor(ref: MethodReference, location: Location) :
-            this(ref.owner, ref.name, ref.descriptor, location)
-
-    override fun message() = "the method '$owner.$name${if (desc == null) "" else ":$desc"}' not found"
+    val UNRESOLVABLE_CLASS by error(String) { name -> "the class '$name' not found" }
+    val UNRESOLVABLE_FIELD by error(String, String, String.optional()) { owner, name, desc ->
+        "the field '$owner.$name${if (desc == null) "" else ":$desc"}' not found"
+    }
+    val UNRESOLVABLE_METHOD by error(String, String, String.optional()) { owner, name, desc ->
+        "the method '$owner.$name${if (desc == null) "" else ":$desc"}' not found"
+    }
 }
 
 sealed class Location {

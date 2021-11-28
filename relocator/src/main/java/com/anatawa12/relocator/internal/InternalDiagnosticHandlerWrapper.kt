@@ -17,9 +17,9 @@ internal class InternalDiagnosticHandlerWrapper(
     val warningCount get()= _warningCount.value
 
     override fun handle(diagnostic: Diagnostic) {
-        when (diagnostic) {
-            is Error -> _errorCount.incrementAndGet()
-            is Warning -> _warningCount.incrementAndGet()
+        when (diagnostic.type.kind) {
+            DiagnosticKind.Error -> _errorCount.incrementAndGet()
+            DiagnosticKind.Warning -> _warningCount.incrementAndGet()
         }
         handler.handle(diagnostic)
     }
