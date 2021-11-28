@@ -49,6 +49,8 @@ sealed class DiagnosticValueType<T> {
     }
 }
 
+/*
+// ABI for Kotlin. should be separated module
 class DiagnosticBuilder<T> internal constructor(
     internal val kind: DiagnosticKind,
     internal val render: Any?,
@@ -56,20 +58,21 @@ class DiagnosticBuilder<T> internal constructor(
 ) {
     internal fun create(name: String) = factory(name, this)
 }
+ */
 
 object BasicDiagnostics : DiagnosticContainer() {
-    val UNRESOLVABLE_INNER_CLASS by warning(String, String) { outer, inner ->
+    val UNRESOLVABLE_INNER_CLASS = warning("UNRESOLVABLE_INNER_CLASS", String, String) { outer, inner ->
         "the internal name of '$outer.$inner' not found."
     }
-    val UNRESOLVABLE_REFLECTION_CLASS by warning("Unresolvable reflection call for class found.")
-    val UNRESOLVABLE_REFLECTION_FIELD by warning("Unresolvable reflection call for field found.")
-    val UNRESOLVABLE_REFLECTION_METHOD by warning("Unresolvable reflection call for method found.")
+    val UNRESOLVABLE_REFLECTION_CLASS = warning("UNRESOLVABLE_REFLECTION_CLASS", "Unresolvable reflection call for class found.")
+    val UNRESOLVABLE_REFLECTION_FIELD = warning("UNRESOLVABLE_REFLECTION_FIELD", "Unresolvable reflection call for field found.")
+    val UNRESOLVABLE_REFLECTION_METHOD = warning("UNRESOLVABLE_REFLECTION_METHOD", "Unresolvable reflection call for method found.")
 
-    val UNRESOLVABLE_CLASS by error(String) { name -> "the class '$name' not found" }
-    val UNRESOLVABLE_FIELD by error(String, String, String.optional()) { owner, name, desc ->
+    val UNRESOLVABLE_CLASS = error("UNRESOLVABLE_CLASS", String) { name -> "the class '$name' not found" }
+    val UNRESOLVABLE_FIELD = error("UNRESOLVABLE_FIELD", String, String, String.optional()) { owner, name, desc ->
         "the field '$owner.$name${if (desc == null) "" else ":$desc"}' not found"
     }
-    val UNRESOLVABLE_METHOD by error(String, String, String.optional()) { owner, name, desc ->
+    val UNRESOLVABLE_METHOD = error("UNRESOLVABLE_METHOD", String, String, String.optional()) { owner, name, desc ->
         "the method '$owner.$name${if (desc == null) "" else ":$desc"}' not found"
     }
 }
