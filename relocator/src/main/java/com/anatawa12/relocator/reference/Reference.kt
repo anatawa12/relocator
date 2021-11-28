@@ -139,7 +139,7 @@ class FieldReference(
     override fun toString(): String = "field $owner.$name:$descriptor"
 
     override fun equals(other: Any?): Boolean = this === other
-            || other is MethodReference
+            || other is FieldReference
             && owner == other.owner
             && name == other.name
             && descriptor == other.descriptor
