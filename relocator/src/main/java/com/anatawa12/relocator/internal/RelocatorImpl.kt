@@ -5,9 +5,9 @@ import com.anatawa12.relocator.ReferencesCollectContext
 import com.anatawa12.relocator.Relocator
 import com.anatawa12.relocator.classes.*
 import com.anatawa12.relocator.diagnostic.*
-import com.anatawa12.relocator.diagnostic.BasicDiagnostics.UNRESOLVABLE_CLASS
-import com.anatawa12.relocator.diagnostic.BasicDiagnostics.UNRESOLVABLE_FIELD
-import com.anatawa12.relocator.diagnostic.BasicDiagnostics.UNRESOLVABLE_METHOD
+import com.anatawa12.relocator.internal.BasicDiagnostics.UNRESOLVABLE_CLASS
+import com.anatawa12.relocator.internal.BasicDiagnostics.UNRESOLVABLE_FIELD
+import com.anatawa12.relocator.internal.BasicDiagnostics.UNRESOLVABLE_METHOD
 import com.anatawa12.relocator.reference.*
 import com.anatawa12.relocator.reference.withLocation
 import kotlinx.coroutines.coroutineScope

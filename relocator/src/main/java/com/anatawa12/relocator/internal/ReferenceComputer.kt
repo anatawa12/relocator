@@ -6,11 +6,11 @@ import com.anatawa12.relocator.classes.CombinedClassPath
 import com.anatawa12.relocator.classes.findField
 import com.anatawa12.relocator.classes.findMethod
 import com.anatawa12.relocator.diagnostic.*
-import com.anatawa12.relocator.diagnostic.BasicDiagnostics.UNRESOLVABLE_CLASS
-import com.anatawa12.relocator.diagnostic.BasicDiagnostics.UNRESOLVABLE_INNER_CLASS
-import com.anatawa12.relocator.diagnostic.BasicDiagnostics.UNRESOLVABLE_REFLECTION_CLASS
-import com.anatawa12.relocator.diagnostic.BasicDiagnostics.UNRESOLVABLE_REFLECTION_FIELD
-import com.anatawa12.relocator.diagnostic.BasicDiagnostics.UNRESOLVABLE_REFLECTION_METHOD
+import com.anatawa12.relocator.internal.BasicDiagnostics.UNRESOLVABLE_CLASS
+import com.anatawa12.relocator.internal.BasicDiagnostics.UNRESOLVABLE_INNER_CLASS
+import com.anatawa12.relocator.internal.BasicDiagnostics.UNRESOLVABLE_REFLECTION_CLASS
+import com.anatawa12.relocator.internal.BasicDiagnostics.UNRESOLVABLE_REFLECTION_FIELD
+import com.anatawa12.relocator.internal.BasicDiagnostics.UNRESOLVABLE_REFLECTION_METHOD
 import com.anatawa12.relocator.internal.ClassRefCollectingAnnotationVisitor.Utils.acceptAnnotations
 import com.anatawa12.relocator.internal.ClassRefCollectingAnnotationVisitor.Utils.acceptValue
 import com.anatawa12.relocator.internal.ClassRefCollectingSignatureVisitor.Utils.acceptSignature
