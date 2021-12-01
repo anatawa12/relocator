@@ -6,13 +6,11 @@ import org.objectweb.asm.Opcodes.*
 import java.io.File
 import java.lang.reflect.*
 import kotlin.collections.ArrayDeque
-import kotlin.reflect.KVisibility
-import kotlin.reflect.jvm.kotlinFunction
 
 /**
- * The test to check all ABI doesn't use kotlin classes
+ * The test to check all ABI doesn't use external classes
  */
-class AllAPIDoesNotUseKotlin {
+class AllAPIDoesNotUseExternalClass {
     val bads = mutableListOf<String>()
 
     @Test
@@ -29,7 +27,7 @@ class AllAPIDoesNotUseKotlin {
         if (bads.isNotEmpty())
             throw Exception("some class have kotlin ABI: \n" + bads.joinToString("\n"))
     }
-    
+
     val anonymousClassPattern = """\$[0-9]""".toRegex()
 
     private fun checkClassFile(classFile: Class<*>) {
@@ -48,7 +46,8 @@ class AllAPIDoesNotUseKotlin {
             if (!isApi(method.modifiers)) continue
             if (method.modifiers.hasFlag(ACC_SYNTHETIC)) continue
 
-            if (method.kotlinFunction?.visibility == KVisibility.INTERNAL) continue
+            if (method.name.endsWith("\$relocator")) continue
+            if (method.name in javaKeywords) continue
             checkAnnotations(method, "method ${classFile.name}:${method.name}")
             for (parameter in method.parameters)
                 checkAnnotatedType(parameter.annotatedType, "parameter type of method ${classFile.name}:${method.name}")
@@ -80,7 +79,6 @@ class AllAPIDoesNotUseKotlin {
         val location = "annotation type of $of"
         for (declaredAnnotation in classFile.declaredAnnotations) {
             // ignore kotlin.Metadata
-            if (declaredAnnotation.annotationClass == Metadata::class) continue
             checkClass(declaredAnnotation.annotationClass.java, location)
         }
     }
@@ -137,6 +135,7 @@ class AllAPIDoesNotUseKotlin {
                 override fun getType(): Type = type
                 override fun getAnnotatedLowerBounds(): Array<AnnotatedType> =
                     type.lowerBounds.map(::toAnnotated).toTypedArray()
+
                 override fun getAnnotatedUpperBounds(): Array<AnnotatedType> =
                     type.upperBounds.map(::toAnnotated).toTypedArray()
             }
@@ -152,7 +151,29 @@ class AllAPIDoesNotUseKotlin {
     private fun checkClass(clazz: Class<*>, location: String) {
         @Suppress("NAME_SHADOWING") var clazz = clazz
         while (clazz.isArray) clazz = clazz.componentType
-        if (clazz.name.startsWith("kotlin"))
-            bads.add(location)
+
+        if (clazz.name.startsWith("com.anatawa12.relocator.internal."))
+            bads.add("uses internal at $location")
+
+        if (clazz.isPrimitive) return
+        if (clazz == Metadata::class.java) return
+        if (clazz.name.startsWith("kotlin.jvm.internal.markers.")) return
+        if (clazz.name.startsWith("java.")) return
+        if (clazz.name.startsWith("com.anatawa12.relocator.")) return
+
+        bads.add("uses $clazz at $location")
     }
+
+    val javaKeywords = setOf(
+        "abstract", "continue", "for", "new", "switch",
+        "assert", "default", "goto", "package", "synchronized",
+        "boolean", "do", "if", "private", "this",
+        "break", "double", "implements", "protected", "throw",
+        "byte", "else", "import", "public", "throws",
+        "case", "enum", "instanceof", "return", "transient",
+        "catch", "extends", "int", "short", "try",
+        "char", "final", "interface", "static", "void",
+        "class", "finally", "long", "strictfp", "volatile",
+        "const", "float", "native", "super", "while",
+    )
 }
