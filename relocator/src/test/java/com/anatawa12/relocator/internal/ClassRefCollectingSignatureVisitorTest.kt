@@ -1,13 +1,13 @@
 package com.anatawa12.relocator.internal
 
+import com.anatawa12.relocator.classes.ClassInnerClass
 import com.anatawa12.relocator.diagnostic.Location
 import com.anatawa12.relocator.reference.ClassReference
-import org.amshove.kluent.*
+import org.amshove.kluent.`should be equal to`
 import org.junit.jupiter.api.Test
-import org.objectweb.asm.tree.InnerClassNode
 
 internal class ClassRefCollectingSignatureVisitorTest {
-    fun test(signature: String?, vararg innerClasses: InnerClassNode): Set<ClassReference> {
+    fun test(signature: String?, vararg innerClasses: ClassInnerClass): Set<ClassReference> {
         val container = InnerClassContainer(innerClasses.toList())
         val env = newComputeReferenceEnvironment()
         val collection = hashSetOf<ClassReference>()
@@ -51,14 +51,17 @@ internal class ClassRefCollectingSignatureVisitorTest {
             }
         }
         */
-        val inner = InnerClassNode("com/anatawa12/relocator/Test\$Inner",
-            "com/anatawa12/relocator/Test","Inner", 0x0)
+        val inner = ClassInnerClass(0x0,
+            ClassReference("com/anatawa12/relocator/Test\$Inner"),
+            ClassReference("com/anatawa12/relocator/Test"),"Inner")
         //val child = InnerClassNode("com/anatawa12/relocator/Test\$Child",
         //    "com/anatawa12/relocator/Test","Child", 0x8)
-        val childInner = InnerClassNode("com/anatawa12/relocator/Test\$Child\$Inner", 
-            "com/anatawa12/relocator/Test\$Child","Inner", 0x0)
-        val innnerInner2 = InnerClassNode("com/anatawa12/relocator/Test\$Inner\$Inner2", 
-            "com/anatawa12/relocator/Test\$Inner","Inner2", 0x0)
+        val childInner = ClassInnerClass(0x0,
+            ClassReference("com/anatawa12/relocator/Test\$Child\$Inner"), 
+            ClassReference("com/anatawa12/relocator/Test\$Child"),"Inner")
+        val innnerInner2 = ClassInnerClass(0x0,
+            ClassReference("com/anatawa12/relocator/Test\$Inner\$Inner2"), 
+            ClassReference("com/anatawa12/relocator/Test\$Inner"),"Inner2")
 
         test("Lcom/anatawa12/relocator/Test<Ljava/lang/String;>.Inner;",
             inner)

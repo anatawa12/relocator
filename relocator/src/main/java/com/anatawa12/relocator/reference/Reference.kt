@@ -1,60 +1,16 @@
 package com.anatawa12.relocator.reference
 
+import com.anatawa12.relocator.classes.ClassField
+import com.anatawa12.relocator.classes.ClassMethod
 import com.anatawa12.relocator.diagnostic.Location
-import org.objectweb.asm.Handle
-import org.objectweb.asm.Opcodes.*
-import org.objectweb.asm.Type
+import com.anatawa12.relocator.internal.owner
 
 sealed class Reference {
     var location: Location? = null
         internal set
-
-    companion object Utils {
-        @JvmStatic
-        internal fun fromType(type: Type): ClassReference? {
-            return when (type.sort) {
-                Type.VOID -> null
-                Type.BOOLEAN -> null
-                Type.CHAR -> null
-                Type.BYTE -> null
-                Type.SHORT -> null
-                Type.INT -> null
-                Type.FLOAT -> null
-                Type.LONG -> null
-                Type.DOUBLE -> null
-                Type.ARRAY -> fromType(type.elementType)
-                Type.OBJECT -> ClassReference(type.internalName)
-                Type.METHOD -> throw IllegalArgumentException("The type is not type, a METHOD.")
-                else -> throw IllegalArgumentException("Unknown sort of type: ${type.sort}")
-            }
-        }
-
-        @JvmStatic
-        internal fun fromInternalName(internalName: String): ClassReference? =
-            fromType(Type.getObjectType(internalName))
-
-        @JvmStatic
-        internal fun fromDescriptor(descriptor: String): ClassReference? =
-            fromType(Type.getType(descriptor))
-
-        internal fun fromHandle(handle: Handle) = when (handle.tag) {
-            H_GETFIELD,
-            H_PUTFIELD,
-            H_GETSTATIC,
-            H_PUTSTATIC,
-            -> FieldReference(handle.owner, handle.name, handle.desc)
-            H_INVOKEVIRTUAL,
-            H_INVOKESTATIC,
-            H_INVOKESPECIAL,
-            H_NEWINVOKESPECIAL,
-            H_INVOKEINTERFACE,
-            -> MethodReference(handle.owner, handle.name, handle.desc)
-            else -> error("unknown handle tag: ${handle.tag}")
-        }
-    }
 }
 
-internal fun <R: Reference> R.withLocation(location: Location) = apply { this.location = location }
+internal fun <R: Reference> R.withLocation(location: Location?) = apply { if (location != null)this.location = location }
 
 /**
  * @param name The name of the class. This must be either binary name or internal form of binary class name.
@@ -82,26 +38,24 @@ class ClassReference(
  */
 class MethodReference(
     /**
-     * The internal name of owner of class.
+     * The owner of class.
      */
-    owner: String,
+    val owner: ClassReference,
     /**
      * The name of the method.
      */
     val name: String,
     /**
      * The descriptor of the method.
-     * This may not have return type information.
-     * It's for reflection.
      */
     val descriptor: String,
 ): Reference() {
-    /**
-     * The internal name of owner of class.
-     */
-    val owner: String = owner.replace('.', '/')
+    constructor(owner: String, name: String, descriptor: String) :
+            this(ClassReference(owner), name, descriptor)
 
-    override fun toString(): String = "method $owner.$name:$descriptor"
+    constructor(method: ClassMethod): this(method.owner.name, method.name, method.descriptor)
+
+    override fun toString(): String = "method ${owner.name}.$name:$descriptor"
 
     override fun equals(other: Any?): Boolean = this === other
             || other is MethodReference
@@ -118,28 +72,127 @@ class MethodReference(
 /**
  * @param name The name of the class. This must be either binary name or internal form of binary class name.
  */
-class FieldReference(
-    owner: String,
+class PartialMethodReference(
+    /**
+     * The owner of class.
+     */
+    val owner: ClassReference,
     /**
      * The name of the method.
      */
     val name: String,
     /**
-     * The descriptor of the method.
-     * This is null if unknown.
-     * It's for reflection.
+     * The descriptor of the method without return type
      */
-    val descriptor: String?,
+    val descriptor: String,
 ): Reference() {
-    /**
-     * The internal name of owner of class.
-     */
-    val owner: String = owner.replace('.', '/')
+    constructor(owner: String, name: String, descriptor: String) :
+            this(ClassReference(owner), name, descriptor)
 
-    override fun toString(): String = "field $owner.$name:$descriptor"
+    constructor(method: ClassMethod): this(method.owner.name, method.name, method.descriptor)
+
+    override fun toString(): String = "methods ${owner.name}.$name:$descriptor"
+
+    override fun equals(other: Any?): Boolean = this === other
+            || other is PartialMethodReference
+            && owner == other.owner
+            && name == other.name
+            && descriptor == other.descriptor
+
+    override fun hashCode(): Int = 0
+        .times(31).plus(owner.hashCode())
+        .times(31).plus(name.hashCode())
+        .times(31).plus(descriptor.hashCode())
+}
+
+/**
+ * @param name The name of the class. This must be either binary name or internal form of binary class name.
+ */
+class FieldReference(
+    /**
+     * The owner of class.
+     */
+    val owner: ClassReference,
+    /**
+     * The name of the field.
+     */
+    val name: String,
+    /**
+     * The descriptor of the field.
+     */
+    val descriptor: String,
+): Reference() {
+    constructor(owner: String, name: String, descriptor: String) :
+            this(ClassReference(owner), name, descriptor)
+
+    constructor(method: ClassField): this(method.owner.name, method.name, method.descriptor)
+
+    override fun toString(): String = "field ${owner.name}.$name:$descriptor"
 
     override fun equals(other: Any?): Boolean = this === other
             || other is FieldReference
+            && owner == other.owner
+            && name == other.name
+            && descriptor == other.descriptor
+
+    override fun hashCode(): Int = 0
+        .times(31).plus(owner.hashCode())
+        .times(31).plus(name.hashCode())
+        .times(31).plus(descriptor.hashCode())
+}
+
+/**
+ * @param name The name of the class. This must be either binary name or internal form of binary class name.
+ */
+class PartialFieldReference(
+    /**
+     * The owner of class.
+     */
+    val owner: ClassReference,
+    /**
+     * The name of the method.
+     */
+    val name: String,
+): Reference() {
+    constructor(owner: String, name: String) :
+            this(ClassReference(owner), name)
+
+    override fun toString(): String = "fields ${owner.name}.$name"
+
+    override fun equals(other: Any?): Boolean = this === other
+            || other is PartialFieldReference
+            && owner == other.owner
+            && name == other.name
+
+    override fun hashCode(): Int = 0
+        .times(31).plus(owner.hashCode())
+        .times(31).plus(name.hashCode())
+}
+
+/**
+ * @param name The name of the class. This must be either binary name or internal form of binary class name.
+ */
+class RecordFieldReference(
+    /**
+     * The owner of the component.
+     */
+    val owner: ClassReference,
+    /**
+     * The name of the component.
+     */
+    val name: String,
+    /**
+     * The descriptor of the record component.
+     */
+    val descriptor: String,
+): Reference() {
+    constructor(owner: String, name: String, descriptor: String) :
+            this(ClassReference(owner), name, descriptor)
+
+    override fun toString(): String = "field ${owner.name}.$name:$descriptor"
+
+    override fun equals(other: Any?): Boolean = this === other
+            || other is RecordFieldReference
             && owner == other.owner
             && name == other.name
             && descriptor == other.descriptor

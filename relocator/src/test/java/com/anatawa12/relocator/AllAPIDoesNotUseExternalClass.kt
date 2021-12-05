@@ -157,6 +157,7 @@ class AllAPIDoesNotUseExternalClass {
 
         if (clazz.isPrimitive) return
         if (clazz == Metadata::class.java) return
+        if (clazz.name == "kotlin.Deprecated") return
         if (clazz.name.startsWith("kotlin.jvm.internal.markers.")) return
         if (clazz.name.startsWith("java.")) return
         if (clazz.name.startsWith("com.anatawa12.relocator.")) return

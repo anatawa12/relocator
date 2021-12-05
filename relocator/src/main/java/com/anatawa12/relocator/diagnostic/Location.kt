@@ -1,10 +1,7 @@
 package com.anatawa12.relocator.diagnostic
 
-import com.anatawa12.relocator.classes.ClassFile
-import org.objectweb.asm.tree.FieldNode
-import org.objectweb.asm.tree.LocalVariableNode
-import org.objectweb.asm.tree.MethodNode
-import org.objectweb.asm.tree.RecordComponentNode
+import com.anatawa12.relocator.classes.*
+import com.anatawa12.relocator.internal.owner
 
 sealed class Location {
     abstract override fun toString(): String
@@ -18,23 +15,25 @@ sealed class Location {
         override fun toString(): String = "at class $name"
     }
 
-    class RecordField(val owner: String, val name: String, val desc: String) : Location() {
-        constructor(owner: String, record: RecordComponentNode) : this(owner, record.name, record.descriptor)
-        override fun toString(): String = "at record field $owner.$name:$desc"
+    class RecordField(val owner: String, val name: String, val descriptor: String) : Location() {
+        constructor(record: ClassRecordField) : this(record.owner.name, record.name, record.descriptor)
+        override fun toString(): String = "at record field $owner.$name:$descriptor"
     }
 
-    class Method(val owner: String, val name: String, val desc: String) : Location() {
-        constructor(owner: String, method: MethodNode) : this(owner, method.name, method.desc)
-        override fun toString(): String = "at method $owner.$name:$desc"
+    class Method(val owner: String, val name: String, val descriptor: String) : Location() {
+        constructor(method: ClassMethod) : this(method.owner.name, method.name, method.descriptor)
+        override fun toString(): String = "at method $owner.$name:$descriptor"
     }
 
-    class MethodLocal(val owner: String, val mName: String, val desc: String, val num: Int, val name: String) : Location() {
-        constructor(owner: String, method: MethodNode, variable: LocalVariableNode) : this(owner, method.name, method.desc, variable.index, variable.name)
-        override fun toString(): String = "at local variable $num($name) in method $owner.$mName:$desc"
+    class MethodLocal(val owner: String, val mName: String, val descriptor: String, val num: Int, val name: String) : Location() {
+        constructor(variable: LocalVariable) : this(variable.owner.owner, variable.index, variable.name)
+        constructor(method: ClassMethod, num: Int, name: String)
+                : this(method.name, method.name, method.descriptor, num, name)
+        override fun toString(): String = "at local variable $num($name) in method $owner.$mName:$descriptor"
     }
 
-    class Field(val owner: String, val name: String, val desc: String) : Location() {
-        constructor(owner: String, field: FieldNode) : this(owner, field.name, field.desc)
-        override fun toString(): String = "at field $owner.$name:$desc"
+    class Field(val owner: String, val name: String, val descriptor: String) : Location() {
+        constructor(field: ClassField) : this(field.owner.name, field.name, field.descriptor)
+        override fun toString(): String = "at field $owner.$name:$descriptor"
     }
 }

@@ -104,22 +104,40 @@ private class ReferencesCollectContextImpl(
                     ?: return@start addDiagnostic(UNRESOLVABLE_CLASS(reference.name,
                         reference.location ?: Location.None)))
                 is FieldReference -> {
+                    val field = classpath.findField(reference)
+                        ?: return@start addDiagnostic(UNRESOLVABLE_FIELD(reference.owner.name,
+                            reference.name, reference.descriptor, reference.location ?: Location.None))
+                    collectReferencesOf(field)
+                }
+                is PartialFieldReference -> {
                     val fields = classpath.findFields(reference)
                     if (fields.isEmpty())
-                        return@start addDiagnostic(UNRESOLVABLE_FIELD(reference.owner,
-                            reference.name,
-                            reference.descriptor,
-                            reference.location ?: Location.None))
+                        return@start addDiagnostic(UNRESOLVABLE_FIELD(reference.owner.name,
+                            reference.name, null, reference.location ?: Location.None))
                     fields.forEach { start { collectReferencesOf(it) } }
                 }
+                is RecordFieldReference -> {
+                    val recordField = classpath.findRecordField(reference)
+                        ?: return@start addDiagnostic(UNRESOLVABLE_FIELD(reference.owner.name,
+                            reference.name, reference.descriptor, reference.location ?: Location.None))
+                    collectReferencesOf(recordField)
+                }
                 is MethodReference -> {
-                    if (reference.owner[0] == '[' && isArrayMethod(reference))
+                    if (reference.owner.name[0] == '[' && isArrayMethod(reference))
                         return@start
                     collectReferencesOf(classpath.findMethod(reference)
-                        ?: return@start addDiagnostic(UNRESOLVABLE_METHOD(reference.owner,
-                            reference.name,
-                            reference.descriptor,
-                            reference.location ?: Location.None)))
+                        ?: return@start addDiagnostic(UNRESOLVABLE_METHOD(reference.owner.name,
+                            reference.name, reference.descriptor, reference.location ?: Location.None)))
+                }
+                is PartialMethodReference -> {
+                    if (reference.owner.name[0] == '[' && isArrayMethod(reference))
+                        return@start
+
+                    val methods = classpath.findMethods(reference)
+                    if (methods.isEmpty())
+                        return@start addDiagnostic(UNRESOLVABLE_METHOD(reference.owner.name,
+                            reference.name, reference.descriptor, reference.location ?: Location.None))
+                    methods.forEach { start { collectReferencesOf(it) } }
                 }
             }
         }
@@ -130,6 +148,11 @@ private class ReferencesCollectContextImpl(
         return objectClass.findMethod(reference) != null
     }
 
+    private suspend fun isArrayMethod(reference: PartialMethodReference): Boolean {
+        val objectClass = classpath.findClass("java/lang/Object") ?: return false
+        return objectClass.findMethods(reference).isNotEmpty()
+    }
+
     private fun collectReferencesOf(classFile: ClassFile) {
         classFile.included = true
         collectReferencesOf(classFile.allReferences, Location.Class(classFile.name))
@@ -137,12 +160,17 @@ private class ReferencesCollectContextImpl(
 
     private fun collectReferencesOf(field: ClassField) {
         field.included = true
-        collectReferencesOf(field.allReferences, Location.Field(field.owner.name, field.main))
+        collectReferencesOf(field.allReferences, Location.Field(field))
     }
 
     private fun collectReferencesOf(method: ClassMethod) {
         method.included = true
-        collectReferencesOf(method.allReferences, Location.Method(method.owner.name, method.main))
+        collectReferencesOf(method.allReferences, Location.Method(method))
+    }
+
+    private fun collectReferencesOf(record: ClassRecordField) {
+        record.included = true
+        collectReferencesOf(record.allReferences, Location.RecordField(record))
     }
 }
 
@@ -151,11 +179,9 @@ private object DefaultCollector : ReferenceCollector {
         for (classFile in roots.classes) {
             collectReferencesOf(ClassReference(classFile.name))
             for (method in classFile.methods)
-                collectReferencesOf(MethodReference(classFile.name,
-                    method.main.name,
-                    method.main.desc))
+                collectReferencesOf(MethodReference(method))
             for (field in classFile.fields)
-                collectReferencesOf(FieldReference(classFile.name, field.main.name, field.main.desc))
+                collectReferencesOf(FieldReference(field))
         }
     }
 }

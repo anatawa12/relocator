@@ -1,33 +1,24 @@
 @file:JvmName("ReferenceComputer")
 package com.anatawa12.relocator.internal
 
-import com.anatawa12.relocator.classes.ClassFile
-import com.anatawa12.relocator.classes.CombinedClassPath
-import com.anatawa12.relocator.classes.findField
-import com.anatawa12.relocator.classes.findMethod
-import com.anatawa12.relocator.diagnostic.*
+import com.anatawa12.relocator.classes.*
+import com.anatawa12.relocator.diagnostic.Diagnostic
+import com.anatawa12.relocator.diagnostic.DiagnosticHandler
+import com.anatawa12.relocator.diagnostic.Location
 import com.anatawa12.relocator.internal.BasicDiagnostics.UNRESOLVABLE_CLASS
 import com.anatawa12.relocator.internal.BasicDiagnostics.UNRESOLVABLE_INNER_CLASS
 import com.anatawa12.relocator.internal.BasicDiagnostics.UNRESOLVABLE_REFLECTION_CLASS
 import com.anatawa12.relocator.internal.BasicDiagnostics.UNRESOLVABLE_REFLECTION_FIELD
 import com.anatawa12.relocator.internal.BasicDiagnostics.UNRESOLVABLE_REFLECTION_METHOD
-import com.anatawa12.relocator.internal.ClassRefCollectingAnnotationVisitor.Utils.acceptAnnotations
-import com.anatawa12.relocator.internal.ClassRefCollectingAnnotationVisitor.Utils.acceptValue
+import com.anatawa12.relocator.internal.ClassRefCollectingAnnotationVisitor.acceptAnnotations
+import com.anatawa12.relocator.internal.ClassRefCollectingAnnotationVisitor.acceptValue
 import com.anatawa12.relocator.internal.ClassRefCollectingSignatureVisitor.Utils.acceptSignature
-import com.anatawa12.relocator.reference.ClassReference
-import com.anatawa12.relocator.reference.FieldReference
-import com.anatawa12.relocator.reference.MethodReference
-import com.anatawa12.relocator.reference.Reference
-import com.anatawa12.relocator.reference.Reference.Utils.fromDescriptor
-import com.anatawa12.relocator.reference.Reference.Utils.fromHandle
-import com.anatawa12.relocator.reference.Reference.Utils.fromInternalName
-import com.anatawa12.relocator.reference.Reference.Utils.fromType
-import org.objectweb.asm.*
+import com.anatawa12.relocator.reference.*
+import com.google.common.annotations.VisibleForTesting
 import org.objectweb.asm.Opcodes.*
+import org.objectweb.asm.Type
 import org.objectweb.asm.signature.SignatureReader
 import org.objectweb.asm.signature.SignatureVisitor
-import org.objectweb.asm.tree.*
-import org.objectweb.asm.tree.AbstractInsnNode.*
 import java.util.*
 
 internal class ComputeReferenceEnvironment(
@@ -38,42 +29,32 @@ internal class ComputeReferenceEnvironment(
 
 internal fun computeReferencesOfClass(
     env: ComputeReferenceEnvironment,
-    file: ClassFile,
+    main: ClassFile,
 ) = buildSet<Reference> {
-    val main = file.main
-    acceptSignature(this, env, file.innerClasses, main.signature, Location.Class(main.name))
-    main.superName?.let(::fromInternalName)?.let(::add)
-    // nest member classes are not required to exist
-    // add them if exists
-    //main.interfaces.let(::fromInternalName)?.let(::add)
+    acceptSignature(this, env, main.innerClassesContainer, main.signature, Location.Class(main.name))
+    main.superName?.let(::add)
+    main.outerClass?.let(::add)
+    // super interfaces is not required to be exists
+    //main.interfaces.let(::addAll)
     acceptAnnotations(this, env, main.visibleAnnotations)
     acceptAnnotations(this, env, main.visibleTypeAnnotations)
     if (env.keepRuntimeInvisibleAnnotation) {
         acceptAnnotations(this, env, main.invisibleAnnotations)
         acceptAnnotations(this, env, main.invisibleTypeAnnotations)
     }
-    main.nestHostClass?.let(::fromInternalName)?.let(::add)
-    // nest member classes are not required to exist
-    //main.nestMembers?.mapNotNullTo(this, ::fromInternalName)
+    main.nestHostClass?.let(::add)
+    // nAnyest member classes are not required to exist
+    //main.nestMembers.let(::addAll)
     // permitted subclasses are not required to exist
-    //main.permittedSubclasses?.mapNotNullTo(this, ::fromInternalName)
+    //main.permittedSubclasses.let(::addAll)
 
     // record support
     if (main.access.hasFlag(ACC_RECORD)) {
         // record components (including default constructor) will be keep
         // if this class will be kept
-        for (recordComponent in main.recordComponents) {
-            recordComponent.descriptor.let(::fromDescriptor)?.let(::add)
-            acceptSignature(this, env, file.innerClasses, recordComponent.signature, Location.RecordField(main.name, recordComponent))
-            acceptAnnotations(this, env, recordComponent.visibleAnnotations)
-            acceptAnnotations(this, env, recordComponent.visibleTypeAnnotations)
-            add(MethodReference(main.name, recordComponent.name, "()${recordComponent.descriptor}"))
-            if (env.keepRuntimeInvisibleAnnotation) {
-                acceptAnnotations(this, env, recordComponent.invisibleAnnotations)
-                acceptAnnotations(this, env, recordComponent.invisibleTypeAnnotations)
-            }
-        }
-        val recordDefaultCtor = "(${main.recordComponents.joinToString("") { it.descriptor }})V"
+        for (recordField in main.recordFields)
+            add(RecordFieldReference(main.name, recordField.name, recordField.descriptor))
+        val recordDefaultCtor = "(${main.recordFields.joinToString("") { it.descriptor }})V"
         add(MethodReference(main.name, "<init>", recordDefaultCtor))
     }
 
@@ -87,47 +68,33 @@ internal fun computeReferencesOfClass(
 
 internal suspend fun computeReferencesOfMethod(
     env: ComputeReferenceEnvironment,
-    main: MethodNode,
-    owner: ClassFile,
+    main: ClassMethod,
 ) = buildSet<Reference> {
-    Type.getArgumentTypes(main.desc).mapNotNullTo(this, Reference.Utils::fromType)
-    Type.getReturnType(main.desc).let(Reference.Utils::fromType)?.let(::add)
-    acceptSignature(this, env, owner.innerClasses, main.signature, Location.Method(owner.name, main))
-    main.exceptions.mapNotNullTo(this, Reference.Utils::fromInternalName)
+    val owner = main.owner
+    Type.getArgumentTypes(main.descriptor).mapNotNullTo(this, ::newReference)
+    Type.getReturnType(main.descriptor).let(::newReference)?.let(::add)
+    acceptSignature(this, env, owner.innerClassesContainer, main.signature, Location.Method(main))
+    main.exceptions.let(::addAll)
     acceptValue(this, main.annotationDefault)
     acceptAnnotations(this, env, main.visibleAnnotations)
     acceptAnnotations(this, env, main.visibleTypeAnnotations)
     acceptAnnotations(this, env, main.visibleParameterAnnotations)
-    acceptAnnotations(this, env, main.visibleLocalVariableAnnotations)
+    main.classCode?.visibleLocalVariableAnnotations?.let { acceptAnnotations(this, env, it) }
     if (env.keepRuntimeInvisibleAnnotation) {
         acceptAnnotations(this, env, main.invisibleAnnotations)
         acceptAnnotations(this, env, main.invisibleTypeAnnotations)
         acceptAnnotations(this, env, main.invisibleParameterAnnotations)
-        acceptAnnotations(this, env, main.invisibleLocalVariableAnnotations)
+        main.classCode?.invisibleLocalVariableAnnotations?.let { acceptAnnotations(this, env, it) }
     }
-    for (tryCatchBlock in main.tryCatchBlocks) {
-        tryCatchBlock.type?.let(Reference.Utils::fromInternalName)?.let(::add)
-        acceptAnnotations(this, env, tryCatchBlock.visibleTypeAnnotations)
-        if (env.keepRuntimeInvisibleAnnotation) {
-            acceptAnnotations(this,
-                env,
-                tryCatchBlock.invisibleTypeAnnotations)
-        }
-    }
-    main.localVariables?.forEach { localVariable ->
-        localVariable.desc?.let(Reference.Utils::fromDescriptor)?.let(::add)
-        acceptSignature(this, env, owner.innerClasses, localVariable.signature,
-            Location.MethodLocal(owner.name, main, localVariable))
-    }
-    collectReferencesOfInsnList(env, main.instructions, this, Location.Method(owner.name, main))
+    main.classCode?.let { computeReferencesOfClassCode(env, it) }
 
     // additional: owner class
-    fromInternalName(owner.name)?.let(::add)
+    newReference(owner.name)?.let(::add)
     // additional: parent class's method to current one
     if (main.name != "<init>" && main.name != "<clinit>" && (main.access and ACC_PRIVATE) == 0) {
-        val refToThisMethod = MethodReference(owner.name, main.name, main.desc)
+        val refToThisMethod = MethodReference(owner.name, main.name, main.descriptor)
         ParentClasses(env, owner).forEach { parentClass ->
-            val parentMethod = parentClass.findMethod(main.name, main.desc) ?: return@forEach true
+            val parentMethod = parentClass.findMethod(main.name, main.descriptor) ?: return@forEach true
             parentMethod.externalReferences += refToThisMethod
             false
         }
@@ -136,11 +103,11 @@ internal suspend fun computeReferencesOfMethod(
 
 internal suspend fun computeReferencesOfField(
     env: ComputeReferenceEnvironment,
-    main: FieldNode,
-    owner: ClassFile,
+    main: ClassField,
 ) = buildSet<ClassReference> {
-    Type.getType(main.desc).let(::fromType)?.let(::add)
-    acceptSignature(this, env, owner.innerClasses, main.signature, Location.Field(owner.name, main))
+    val owner = main.owner
+    Type.getType(main.descriptor).let(::newReference)?.let(::add)
+    acceptSignature(this, env, owner.innerClassesContainer, main.signature, Location.Field(main))
     acceptValue(this, main.value)
     acceptAnnotations(this, env, main.visibleAnnotations)
     acceptAnnotations(this, env, main.visibleTypeAnnotations)
@@ -150,13 +117,82 @@ internal suspend fun computeReferencesOfField(
     }
 
     // additional: owner class
-    fromInternalName(owner.name)?.let(::add)
+    newReference(owner.name)?.let(::add)
     // additional: parent class's field to current one
-    val refToThisField = FieldReference(owner.name, main.name, main.desc)
+    val refToThisField = FieldReference(owner.name, main.name, main.descriptor)
     ParentClasses(env, owner).forEach { parentClass ->
-        val parentField = parentClass.findField(main.name, main.desc)  ?: return@forEach true
+        val parentField = parentClass.findField(main.name, main.descriptor)  ?: return@forEach true
         parentField.externalReferences += refToThisField
         false
+    }
+}
+
+@Suppress("RedundantSuspendModifier")
+internal suspend fun computeReferencesOfRecordField(
+    env: ComputeReferenceEnvironment,
+    main: ClassRecordField,
+) = buildSet<Reference> {
+    val owner = main.owner
+    main.descriptor.let(::newReferenceDesc)?.let(::add)
+    acceptSignature(this,
+        env,
+        owner.innerClassesContainer,
+        main.signature,
+        Location.RecordField(main))
+    acceptAnnotations(this, env, main.visibleAnnotations)
+    acceptAnnotations(this, env, main.visibleTypeAnnotations)
+    add(MethodReference(main.name, main.name, "()${main.descriptor}"))
+    if (env.keepRuntimeInvisibleAnnotation) {
+        acceptAnnotations(this, env, main.invisibleAnnotations)
+        acceptAnnotations(this, env, main.invisibleTypeAnnotations)
+    }
+}
+
+@Suppress("RedundantSuspendModifier")
+internal suspend fun computeReferencesOfClassCode(
+    env: ComputeReferenceEnvironment,
+    main: ClassCode,
+) = buildSet<Reference> {
+    for (tryCatchBlock in main.tryCatchBlocks) {
+        tryCatchBlock.type?.let(::add)
+        acceptAnnotations(this, env, tryCatchBlock.visibleAnnotations)
+        if (env.keepRuntimeInvisibleAnnotation) {
+            acceptAnnotations(this, env, tryCatchBlock.invisibleAnnotations)
+        }
+    }
+    main.localVariables.forEach { localVariable ->
+        localVariable.descriptor.let(::newReferenceDesc)?.let(::add)
+        acceptSignature(this, env, main.owner.owner.innerClassesContainer, localVariable.signature,
+            Location.MethodLocal(localVariable))
+    }
+    collectReferencesOfInsnList(env, main.instructions, this, Location.Method(main.owner))
+}
+
+fun processConstant(value: Constant, references: MutableCollection<in Reference>) {
+    when (value) {
+        is ConstantMethodType -> {
+            val method = Type.getType(value.descriptor)
+            method.argumentTypes.mapNotNullTo(references, ::newReference)
+            newReference(method.returnType)?.let(references::add)
+        }
+        is ConstantClass -> {
+            newReference(Type.getType(value.descriptor))?.let(references::add)
+        }
+        is ConstantDynamic -> {
+            val method = Type.getType(value.descriptor)
+            method.argumentTypes.mapNotNullTo(references, ::newReference)
+            newReference(method.returnType)?.let(references::add)
+            processConstant(value.bootstrapMethod, references)
+            for (arg in value.args)
+                processConstant(arg, references)
+        }
+        is ConstantFieldHandle -> references.add(value.field)
+        is ConstantMethodHandle -> references.add(value.method)
+        is ConstantDouble -> {}
+        is ConstantFloat -> {}
+        is ConstantInt -> {}
+        is ConstantLong -> {}
+        is ConstantString -> {}
     }
 }
 
@@ -166,423 +202,623 @@ internal fun collectReferencesOfInsnList(
     references: MutableCollection<in Reference>,
     location: Location,
 ) {
-    fun processConstant(value: Any?, references: MutableCollection<in Reference>) {
-        when (value) {
-            is Type -> {
-                if (value.sort != Type.METHOD) {
-                    fromType(value)?.let(references::add)
-                } else {
-                    value.argumentTypes.mapNotNullTo(references, ::fromType)
-                    fromType(value.returnType)?.let(references::add)
+    val definedLabels = hashSetOf<CodeLabel>()
+    val backJumpLabels = hashSetOf<CodeLabel>()
+    for (insn in list) {
+        definedLabels += insn.labelsToMe
+        when (insn::class) {
+            SimpleInsn::class -> {}
+            TypedInsn::class -> {}
+            CastInsn::class -> {}
+            VarInsn::class -> {}
+            RetInsn::class -> {}
+            TypeInsn::class -> references.add((insn as TypeInsn).type)
+            FieldInsn::class -> references.add((insn as FieldInsn).field)
+            MethodInsn::class -> references.add((insn as MethodInsn).method)
+            InvokeDynamicInsn::class -> processConstant((insn as InvokeDynamicInsn).target, references)
+            JumpInsn::class -> {
+                if ((insn as JumpInsn).target in definedLabels)
+                    backJumpLabels += insn.target
+            }
+            LdcInsn::class -> processConstant((insn as LdcInsn).value, references)
+
+            IIncInsn::class -> {}
+            TableSwitchInsn::class -> {
+                for (label in (insn as TableSwitchInsn).labels) {
+                    if (label in definedLabels)
+                        backJumpLabels += label
                 }
+                if (insn.default in definedLabels)
+                    backJumpLabels += insn.default
             }
-            is Handle -> references.add(fromHandle(value))
-            is ConstantDynamic -> {
-                references.add(fromHandle(value.bootstrapMethod))
-                for (i in 0 until value.bootstrapMethodArgumentCount)
-                    processConstant(value.getBootstrapMethodArgument(i), references)
+            LookupSwitchInsn::class -> {
+                for ((_, label) in (insn as LookupSwitchInsn).labels) {
+                    if (label in definedLabels)
+                        backJumpLabels += label
+                }
+                if (insn.default in definedLabels)
+                    backJumpLabels += insn.default
             }
+            MultiANewArrayInsn::class -> references.add((insn as MultiANewArrayInsn).type)
         }
     }
 
-    for (insnNode in list) {
-        when (insnNode.type) {
-            TYPE_INSN -> {
-                insnNode as TypeInsnNode
-                fromInternalName(insnNode.desc)?.let(references::add)
-            }
-            FIELD_INSN -> {
-                insnNode as FieldInsnNode
-                references.add(FieldReference(insnNode.owner, insnNode.name, insnNode.desc))
-            }
-            METHOD_INSN -> {
-                insnNode as MethodInsnNode
-                references.add(MethodReference(insnNode.owner, insnNode.name, insnNode.desc))
-            }
-            INVOKE_DYNAMIC_INSN -> {
-                insnNode as InvokeDynamicInsnNode
-                references.add(fromHandle(insnNode.bsm))
-                insnNode.bsmArgs.forEach { processConstant(it, references) }
-            }
-            MULTIANEWARRAY_INSN -> {
-                insnNode as MultiANewArrayInsnNode
-                fromDescriptor(insnNode.desc)?.let(references::add)
-            }
-            FRAME -> {
-                insnNode as FrameNode
-                insnNode.local?.asSequence()?.filterIsInstance<String>()?.mapNotNullTo(references, ::fromInternalName)
-                insnNode.stack?.asSequence()?.filterIsInstance<String>()?.mapNotNullTo(references, ::fromInternalName)
-            }
-        }
-        ExtraReferenceDetector.detectExtraReference(insnNode, env, location)
-    }
+    ExtraReferenceDetector(
+        list.owner.owner.access and ACC_STATIC != 0,
+        list.owner.owner.descriptor,
+        list.owner.maxLocals,
+        env, location, list, references, backJumpLabels,
+    ).collectExtraReferences()
 }
 
-/**
- * The object (as a namespace) to resolve extra member references.
- * Currently, this handles reflection.
- */
-internal object ExtraReferenceDetector {
-    internal class InsnContainer private constructor(private var inner: AbstractInsnNode?) {
-        fun get() = inner!!
-        fun getOrNull() = inner
-        fun getAndPrev() = inner.also { prev() }
-        fun has() = inner != null
-        fun prev() = apply {
-            inner = inner?.prev
+// TODO: support user defined extra references
+
+internal class ExtraReferenceDetector(
+    isStatic: Boolean,
+    methodDescriptor: String,
+    maxLocals: Int,
+    val env: ComputeReferenceEnvironment,
+    val location: Location,
+    val list: List<Insn>,
+    val references: MutableCollection<in Reference>,
+    val backJumpLabels: Set<CodeLabel>,
+) {
+    private val framesByLabel = hashMapOf<CodeLabel, StackFrame>()
+    private var frame: StackFrame? = StackFrame.init(isStatic, methodDescriptor, maxLocals)
+
+    internal fun collectExtraReferences() {
+        for (insn in list) {
+            for (codeLabel in insn.labelsToMe) {
+                val newFrame = framesByLabel[codeLabel] ?: continue
+                if (frame == null) frame = newFrame.clone()
+                else mergeFrame(frame!!, newFrame)
+            }
+            if (frame == null) continue
+            insn.frame?.let { verifyFrame(frame!!, it) }
+            if (insn.labelsToMe.any { it in backJumpLabels })
+                frame!!.underBackJump = true
+            runInsn(insn)
         }
+    }
+
+    private fun verifyFrame(stack: StackFrame, code: CodeFrame) {
+        when (code) {
+            is FullFrame -> {
+                check(stack.stacks.size == code.stacks.size) { "frame verification" }
+                for ((stackV, codeV) in stack.stacks.zip(code.stacks)) {
+                    when (codeV) {
+                        FrameElement.Double,
+                        FrameElement.Long,
+                        -> check(!stackV.isOneWord) { "frame verification" }
+                        else -> check(stackV.isOneWord){ "frame verification" }
+                    }
+                }
+            }
+            SameFrame -> {
+                check(stack.stacks.isEmpty()) { "frame verification" }
+            }
+            is Same1Frame -> {
+                when (code.stack) {
+                    FrameElement.Double,
+                    FrameElement.Long,
+                    -> check(stack.stacks.singleOrNull()?.isOneWord == false) { "frame verification" }
+                    else -> check(stack.stacks.singleOrNull()?.isOneWord == true){ "frame verification" }
+                }
+            }
+            is AppendFrame -> {
+                check(stack.stacks.isEmpty()) { "frame verification" }
+            }
+            is ChopFrame -> {
+                check(stack.stacks.isEmpty()) { "frame verification" }
+            }
+        }
+    }
+
+    private fun pop(n: Int) = repeat(n) { frame!!.stacks.removeLast() }
+    @VisibleForTesting
+    fun pop() = frame!!.stacks.removeLast()
+    private fun pop1Word(): Any {
+        val v1 = pop()
+        check(v1.isOneWord)
+        return v1
+    }
+    private fun pop2Word(): Pair<Any, Any?> {
+        val v1 = pop()
+        if (v1.isOneWord) {
+            val v2 = pop()
+            check(v1.isOneWord)
+            return v1 to v2
+        }
+        return v1 to null
+    }
+    private fun push(push: Any) {
+        frame!!.stacks.add(push)
+    }
+    private fun push(push0: Any, push1: Any) {
+        frame!!.stacks.add(push0)
+        frame!!.stacks.add(push1)
+    }
+    private fun push(push: Pair<Any, Any?>) {
+        val second = push.second
+        if (second != null) push(second)
+        push(push.first)
+    }
+    private fun replace(push: Any) {
+        frame!!.stacks[frame!!.stacks.lastIndex] = push
+    }
+    private fun replace2(push: Any) {
+        pop()
+        frame!!.stacks[frame!!.stacks.lastIndex] = push
+    }
+
+    private fun runInsn(insn: Insn) {
+        when (insn::class) {
+            SimpleInsn::class -> when ((insn as SimpleInsn).insn) {
+                SimpleInsnType.NOP -> {}
+                SimpleInsnType.ACONST_NULL -> push(NULL)
+                SimpleInsnType.POP -> pop1Word()
+                SimpleInsnType.POP2 -> pop2Word()
+                SimpleInsnType.DUP -> pop1Word().also { push(it, it) }
+                SimpleInsnType.DUP_X1 -> {
+                    val v1 = pop1Word()
+                    val v2 = pop1Word()
+                    push(v1)
+                    push(v2)
+                    push(v1)
+                }
+                SimpleInsnType.DUP_X2 -> {
+                    val v1 = pop1Word()
+                    val v2 = pop2Word()
+                    push(v1)
+                    push(v2)
+                    push(v1)
+                }
+                SimpleInsnType.DUP2 -> {
+                    val v1 = pop2Word()
+                    push(v1)
+                    push(v1)
+                }
+                SimpleInsnType.DUP2_X1 -> {
+                    val v1 = pop2Word()
+                    val v2 = pop1Word()
+                    push(v1)
+                    push(v2)
+                    push(v1)
+                }
+                SimpleInsnType.DUP2_X2 -> {
+                    val v1 = pop2Word()
+                    val v2 = pop2Word()
+                    push(v1)
+                    push(v2)
+                    push(v1)
+                }
+                SimpleInsnType.SWAP -> {
+                    val v1 = pop1Word()
+                    val v2 = pop1Word()
+                    push(v1)
+                    push(v2)
+                }
+                SimpleInsnType.LCMP -> replace2(Word.Single)
+                SimpleInsnType.FCMPL -> replace2(Word.Single)
+                SimpleInsnType.FCMPG -> replace2(Word.Single)
+                SimpleInsnType.DCMPL -> replace2(Word.Single)
+                SimpleInsnType.DCMPG -> replace2(Word.Single)
+                SimpleInsnType.RETURN -> frame = null
+                SimpleInsnType.ARRAYLENGTH -> replace(Word.Single)
+                SimpleInsnType.ATHROW -> frame = null
+                SimpleInsnType.MONITORENTER -> pop()
+                SimpleInsnType.MONITOREXIT -> pop()
+            }
+            TypedInsn::class -> when ((insn as TypedInsn).insn) {
+                TypedInsnType.ALOAD -> {
+                    val index = pop()
+                    val array = pop()
+                    if (index !is Int || array !is MutableList<*> || index !in array.indices) {
+                        return push(insn.type.toWord())
+                    }
+                    push(array[index]!!)
+                }
+                TypedInsnType.ASTORE -> {
+                    val value = pop()
+                    val index = pop()
+                    val array = pop()
+                    if (index !is Int || array !is MutableList<*> || index !in array.indices) {
+                        return
+                    }
+                    @Suppress("UNCHECKED_CAST")
+                    (array as MutableList<Any>)[index] = value
+                }
+                TypedInsnType.ADD -> replace2(insn.type.toWord())
+                TypedInsnType.SUB -> replace2(insn.type.toWord())
+                TypedInsnType.MUL -> replace2(insn.type.toWord())
+                TypedInsnType.DIV -> replace2(insn.type.toWord())
+                TypedInsnType.REM -> replace2(insn.type.toWord())
+                TypedInsnType.NEG -> replace(insn.type.toWord())
+                TypedInsnType.SHL -> replace2(insn.type.toWord())
+                TypedInsnType.SHR -> replace2(insn.type.toWord())
+                TypedInsnType.USHR -> replace2(insn.type.toWord())
+                TypedInsnType.AND -> replace2(insn.type.toWord())
+                TypedInsnType.OR -> replace2(insn.type.toWord())
+                TypedInsnType.XOR -> replace2(insn.type.toWord())
+                TypedInsnType.RETURN -> frame = null
+                TypedInsnType.NEWARRAY -> {
+                    val count = pop()
+                    if (count !is Int || count !in 0..100)
+                        return push(Word.Single)
+                    val value = when (insn.type) {
+                        VMType.Int -> MutableList<Any>(count) { 0 }
+                        VMType.Long -> MutableList<Any>(count) { 0L }
+                        VMType.Float -> MutableList<Any>(count) { 0f }
+                        VMType.Double -> MutableList<Any>(count) { .0 }
+                        VMType.Byte -> MutableList<Any>(count) { 0.toByte() }
+                        VMType.Char -> MutableList<Any>(count) { 0.toChar() }
+                        VMType.Short -> MutableList<Any>(count) { 0.toShort() }
+                        VMType.Boolean -> MutableList<Any>(count) { false }
+                        else -> assertError("")
+                    }
+                    push(value)
+                }
+            }
+            CastInsn::class -> replace((insn as CastInsn).to.toWord())
+            VarInsn::class -> {
+                val frame = frame!!
+                when ((insn as VarInsn).insn) {
+                    VarInsnType.LOAD -> push(frame.locals[insn.variable] ?: insn.type.toWord())
+                    VarInsnType.STORE -> frame.locals[insn.variable] = pop()
+                }
+            }
+            RetInsn::class -> frame!!.locals[(insn as RetInsn).variable] = null
+            TypeInsn::class -> when ((insn as TypeInsn).insn) {
+                TypeInsnType.NEW -> push(Word.Single)
+                TypeInsnType.ANEWARRAY -> {
+                    val count = pop()
+                    if (count !is Int || count !in 0..100) {
+                        push(Word.Single)
+                        return
+                    }
+                    push(MutableList(count) { NULL })
+                }
+                TypeInsnType.CHECKCAST -> push(pop())
+                TypeInsnType.INSTANCEOF -> replace(Word.Single)
+            }
+            FieldInsn::class -> {
+                insn as FieldInsn
+                val put = insn.insn == FieldInsnType.PUTFIELD || insn.insn == FieldInsnType.PUTSTATIC
+                val hasSelf = insn.insn == FieldInsnType.PUTFIELD || insn.insn == FieldInsnType.GETFIELD
+                if (put) {
+                    pop() // value
+                    if (hasSelf) pop() // self
+                } else {
+                    val self = if (hasSelf) pop() else null
+                    push(processExtraReference(insn.field, self) ?: Word.from(insn.field.descriptor)!!) // value
+                }
+            }
+            MethodInsn::class -> {
+                insn as MethodInsn
+                val (params, returns) = popAsDescriptorAndReturnWord(insn.method.descriptor)
+                val self = if (insn.insn != MethodInsnType.INVOKESTATIC) pop() else null
+                if (returns == null) return
+                push(processExtraReference(insn.method, self, params) ?: returns)
+            }
+            InvokeDynamicInsn::class -> {
+                insn as InvokeDynamicInsn
+                popAsDescriptorAndReturnWord(insn.target.descriptor).second?.let(::push)
+            }
+            JumpInsn::class -> {
+                when ((insn as JumpInsn).insn) {
+                    JumpInsnType.IFEQ -> pop(1)
+                    JumpInsnType.IFNE -> pop(1)
+                    JumpInsnType.IFLT -> pop(1)
+                    JumpInsnType.IFGE -> pop(1)
+                    JumpInsnType.IFGT -> pop(1)
+                    JumpInsnType.IFLE -> pop(1)
+                    JumpInsnType.IF_ICMPEQ -> pop(2)
+                    JumpInsnType.IF_ICMPNE -> pop(2)
+                    JumpInsnType.IF_ICMPLT -> pop(2)
+                    JumpInsnType.IF_ICMPGE -> pop(2)
+                    JumpInsnType.IF_ICMPGT -> pop(2)
+                    JumpInsnType.IF_ICMPLE -> pop(2)
+                    JumpInsnType.IF_ACMPEQ -> pop(2)
+                    JumpInsnType.IF_ACMPNE -> pop(2)
+                    JumpInsnType.GOTO -> Unit
+                    JumpInsnType.JSR -> push(Word.Single)
+                    JumpInsnType.IFNULL -> pop()
+                    JumpInsnType.IFNONNULL -> pop()
+                }
+                setFrame(framesByLabel, insn.target)
+                if (insn.insn == JumpInsnType.GOTO || insn.insn == JumpInsnType.JSR) {
+                    frame = null
+                }
+            }
+            LdcInsn::class -> push((insn as LdcInsn).value.toFV())
+            IIncInsn::class -> frame!!.locals[(insn as IIncInsn).variable] = Word.Single
+            TableSwitchInsn::class -> {
+                insn as TableSwitchInsn
+                pop()
+                setFrame(framesByLabel, insn.default)
+                for (label in insn.labels)
+                    setFrame(framesByLabel, label)
+                frame = null
+            }
+            LookupSwitchInsn::class -> {
+                insn as LookupSwitchInsn
+                pop()
+                setFrame(framesByLabel, insn.default)
+                for ((_, label) in insn.labels)
+                    setFrame(framesByLabel, label)
+                frame = null
+            }
+            MultiANewArrayInsn::class -> {
+                insn as MultiANewArrayInsn
+                val counts = List(insn.dimensions) { pop() }.asReversed()
+                if (counts.any { it !is Int }) {
+                    push(Word.Single)
+                    return
+                }
+                @Suppress("UNCHECKED_CAST")
+                counts as List<Int>
+                val initValue = when (insn.type.name[insn.dimensions]) {
+                    'Z' -> false
+                    'C' -> 0.toChar()
+                    'B' -> 0.toByte()
+                    'S' -> 0.toShort()
+                    'I' -> 0
+                    'F' -> 0f
+                    'J' -> 0L
+                    'D' -> .0
+                    'L' -> NULL
+                    '[' -> NULL
+                    else -> error("unsupported descriptor: ${insn.type}")
+                }
+                fun newArray(counts: List<Int>, dim: Int, init: Any): MutableList<Any> {
+                    return if (dim != counts.lastIndex)
+                        MutableList(counts[dim]) { newArray(counts, dim + 1, init) }
+                    else
+                        MutableList(counts[dim]) { init }
+                }
+                push(newArray(counts, 0, initValue))
+            }
+        }
+    }
+
+    private fun processExtraReference(field: FieldReference, @Suppress("UNUSED_PARAMETER") self: Any?): Any? {
+        if (field.name == "TYPE" && field.descriptor == "L${"java/lang/Class"};") {
+            when (field.owner.name) {
+                "java/lang/Void" -> return ConstantClass("V")
+                "java/lang/Integer" -> return ConstantClass("I")
+                "java/lang/Long" -> return ConstantClass("J")
+                "java/lang/Float" -> return ConstantClass("F")
+                "java/lang/Double" -> return ConstantClass("D")
+                "java/lang/Byte" -> return ConstantClass("B")
+                "java/lang/Character" -> return ConstantClass("C")
+                "java/lang/Short" -> return ConstantClass("S")
+                "java/lang/Boolean" -> return ConstantClass("Z")
+            }
+        }
+        return null
+    }
+
+    private fun addDiagnostic(diagnostic: Diagnostic): Nothing? {
+        env.addDiagnostic(diagnostic)
+        return null
+    }
+
+    private fun tryResolveClass(name: Any?): Any? {
+        if (name !is String) return addDiagnostic(UNRESOLVABLE_REFLECTION_CLASS(location))
+        val internalName = name.replace('.', '/')
+        references.add(ClassReference(internalName).withLocation(location))
+        return ConstantClass("L$internalName;")
+    }
+
+    private fun processExtraReference(method: MethodReference, self: Any?, args: List<Any>): Any? {
+        when (method.owner.name) {
+            "java/lang/ClassLoader" -> when (method.name) {
+                "loadClass" -> {
+                    when (method.descriptor) {
+                        "(L${"java/lang/String"};)L${"java/lang/Class"};" ->
+                            return tryResolveClass(args[0])
+                        "(L${"java/lang/String"};B)L${"java/lang/Class"};" ->
+                            return tryResolveClass(args[0])
+                    }
+                }
+            }
+            "java/lang/Class" -> when (method.name) {
+                "forName" -> when (method.descriptor) {
+                    "(L${"java/lang/Module"};L${"java/lang/String"};)L${"java/lang/Class"};" ->
+                        return tryResolveClass(args[1])
+                    "(L${"java/lang/String"};)L${"java/lang/Class"};" ->
+                        return tryResolveClass(args[0])
+                    "(L${"java/lang/String"};BL${"java/lang/ClassLoader"};)L${"java/lang/Class"};" ->
+                        return tryResolveClass(args[0])
+                }
+                "getField" -> when (method.descriptor) {
+                    "(L${"java/lang/String"};)L${"java/lang/reflect/Field"};" -> {
+                        val selfClass = (self as? ConstantClass)?.descriptor?.let(::newReferenceDesc)
+                        val name = args[0] as? String
+                        if (selfClass == null || name == null)
+                            return addDiagnostic(UNRESOLVABLE_REFLECTION_FIELD(location))
+                        references.add(PartialFieldReference(selfClass, name))
+                    }
+                }
+                "getMethod" -> when (method.descriptor) {
+                    "(L${"java/lang/String"};[L${"java/lang/Class"};)L${"java/lang/reflect/Method"};" -> {
+                        val selfClass = (self as? ConstantClass)?.descriptor?.let(::newReferenceDesc)
+                        val name = args[0] as? String
+                        val argTypes = args[0] as? MutableList<*>
+                        if (selfClass == null || name == null || argTypes == null)
+                            return addDiagnostic(UNRESOLVABLE_REFLECTION_METHOD(location))
+                        if (argTypes.any { it !is ConstantClass })
+                            return addDiagnostic(UNRESOLVABLE_REFLECTION_METHOD(location))
+                        references.add(PartialMethodReference(selfClass, name,
+                            descriptor = argTypes.joinToString("", "(", ")") {
+                                (it as ConstantClass).descriptor
+                            }))
+                    }
+                }
+            }
+        }
+        return null
+    }
+
+    private fun setFrame(
+        framesByLabel: HashMap<CodeLabel, StackFrame>,
+        label: CodeLabel,
+    ) {
+        val frame = frame!!
+        val oldFrame = framesByLabel[label]
+        if (oldFrame == null){
+            framesByLabel[label] = frame.clone()
+            return
+        }
+        mergeFrame(oldFrame, frame)
+    }
+
+    private fun mergeFrame(mergeTo: StackFrame, adds: StackFrame) {
+        require(mergeTo.stacks.size == adds.stacks.size) { "merge frame failed" }
+        require(mergeTo.locals.size == adds.locals.size) { "merge frame failed" }
+        merge(mergeTo.stacks, adds.stacks, true)
+        merge(mergeTo.locals, adds.locals, false)
+    }
+
+    private fun <T> merge(mergeTo: MutableList<T>, adds: MutableList<T>, stack: Boolean) {
+        val iter0 = mergeTo.listIterator()
+        val iter1 = adds.iterator()
+        while (iter0.hasNext()) {
+            val one = iter0.next()
+            val two = iter1.next()
+            when {
+                one == two -> Unit
+                one == null -> iter0.set(one)
+                two == null -> iter0.set(two)
+                else -> {
+                    val oneType = one.toWord()
+                    val twoType = two.toWord()
+                    if (stack) {
+                        check(oneType == twoType)
+                    } else {
+                        @Suppress("UNCHECKED_CAST")
+                        if (oneType.isOneWord != twoType.isOneWord) iter0.set(null as T)
+                        else iter0.set(oneType as T)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun popAsDescriptorAndReturnWord(descriptor: String): Pair<List<Any>, Word?> {
+        val frame = frame!!
+        val type = Type.getType(descriptor)
+        val parameters = List(type.argumentTypes.size) {
+            frame.stacks.removeLast() // pop arguments
+        }.asReversed()
+        return parameters to Word.from(type.returnType.descriptor)
+    }
+
+    // Word for unknowns
+    // Constant for known value
+    private class StackFrame(
+        val locals: MutableList<Any?>,
+        val stacks: MutableList<Any>,
+    ) {
+        var underBackJump = false
+        fun clone() = StackFrame(clone(locals), clone(stacks))
 
         companion object {
-            fun get(inner: AbstractInsnNode) = InsnContainer(inner)
-        }
-    }
-
-    private val AbstractInsnNode.prev: AbstractInsnNode?
-        get() {
-            var cur: AbstractInsnNode? = previous
-            while (cur != null && cur.type in setOf(LABEL, LINE))
-                cur = cur.previous
-            return cur
-        }
-
-    private fun descToInternalName(desc: String?): String? {
-        desc ?: return null
-        if (desc[0] != 'L' && desc[0] != '[') return null
-        return desc.substring(1, desc.length - 1)
-    }
-
-    fun detectExtraReference(insnNode: AbstractInsnNode, env: ComputeReferenceEnvironment, location: Location): Reference? {
-        resolveOnStackClass(InsnContainer.get(insnNode), env, location)?.let { descriptor ->
-            return fromDescriptor(descriptor)
-        }
-        if (insnNode.opcode == INVOKEVIRTUAL) {
-            insnNode as MethodInsnNode
-            if (insnNode.owner == "java/lang/Class"
-                && insnNode.name == "getField"
-                && insnNode.desc == "(L${"java/lang/String"};)L${"java/lang/reflect/Field"};"
-            ) {
-                val insn = InsnContainer.get(insnNode).prev()
-                val fieldName = ldcString(insn)
-                    ?: return env.addDiagnostic(UNRESOLVABLE_REFLECTION_FIELD(location)).run { null }
-                val ownerClass = descToInternalName(resolveOnStackClass(insn, env, location))
-                    ?: return env.addDiagnostic(UNRESOLVABLE_REFLECTION_FIELD(location)).run { null }
-                return FieldReference(ownerClass, fieldName, null)
-            }
-            if (insnNode.owner == "java/lang/Class"
-                && insnNode.name == "getMethod"
-                && insnNode.desc == "(L${"java/lang/String"};[L${"java/lang/Class"};)L${"java/lang/reflect/Method"};"
-            ) {
-                val insn = InsnContainer.get(insnNode).prev()
-                val methodArgs = resolveOnStackClassArray(insn, env, location)
-                    ?: return env.addDiagnostic(UNRESOLVABLE_REFLECTION_METHOD(location)).run { null }
-                val methodName = ldcString(insn)
-                    ?: return env.addDiagnostic(UNRESOLVABLE_REFLECTION_METHOD(location)).run { null }
-                val ownerClass = descToInternalName(resolveOnStackClass(insn, env, location))
-                    ?: return env.addDiagnostic(UNRESOLVABLE_REFLECTION_METHOD(location)).run { null }
-                return MethodReference(ownerClass, methodName, methodArgs.joinToString("", "(", ")"))
-            }
-        }
-        return null
-    }
-
-    internal fun resolveOnStackClass(insn: InsnContainer, env: ComputeReferenceEnvironment, location: Location): String? {
-        when (insn.getOrNull()?.opcode ?: return null) {
-            LDC -> {
-                return ((insn.getAndPrev() as? LdcInsnNode)?.cst as? Type)
-                    ?.takeIf { it.sort == Type.OBJECT || it.sort == Type.ARRAY }
-                    ?.descriptor
-            }
-            GETSTATIC -> {
-                val insnNode = insn.getAndPrev() as FieldInsnNode
-
-                if (insnNode.name == "TYPE" && insnNode.desc == "Ljava/lang/Class;") {
-                    when (insnNode.owner) {
-                        "java/lang/Byte" -> return "B"
-                        "java/lang/Short" -> return "S"
-                        "java/lang/Integer" -> return "I"
-                        "java/lang/Long" -> return "J"
-                        "java/lang/Float" -> return "F"
-                        "java/lang/Double" -> return "D"
-                        "java/lang/Void" -> return "V"
+            @Suppress("UNCHECKED_CAST")
+            private fun <T> clone(values: MutableList<T>) = values.mapTo(arrayListOf()) {
+                @Suppress("UNNECESSARY_NOT_NULL_ASSERTION") // compiler bug
+                when (it) {
+                    null -> it
+                    is MutableList<*> -> it.toMutableList() as T
+                    else -> when (it!!::class) {
+                        IntArray::class -> (it as IntArray).clone() as T
+                        LongArray::class -> (it as LongArray).clone() as T
+                        FloatArray::class -> (it as FloatArray).clone() as T
+                        DoubleArray::class -> (it as DoubleArray).clone() as T
+                        ByteArray::class -> (it as ByteArray).clone() as T
+                        CharArray::class -> (it as CharArray).clone() as T
+                        ShortArray::class -> (it as ShortArray).clone() as T
+                        BooleanArray::class -> (it as BooleanArray).clone() as T
+                        else -> it
                     }
                 }
             }
-            INVOKESTATIC -> {
-                val insnNode = insn.getAndPrev() as MethodInsnNode
-                if (insnNode.owner == "java/lang/Class"
-                    && insnNode.name == "forName"
-                ) {
-                    when (insnNode.desc) {
-                        "(L${"java/lang/String"};)L${"java/lang/Class"};" -> {
-                            val ldc = ldcString(insn)
-                                ?: return env.addDiagnostic(UNRESOLVABLE_REFLECTION_CLASS(location)).run { null }
-                            return "L${ldc.replace('.', '/')};"
-                        }
-                        "(L${"java/lang/String"};BL${"java/lang/ClassLoader"};)L${"java/lang/Class"};" -> {
-                            // skip ClassLoader and Boolean
-                            skipValues(insn, 2)
-                                ?: return env.addDiagnostic(UNRESOLVABLE_REFLECTION_CLASS(location)).run { null }
-                            val ldc = ldcString(insn)
-                                ?: return env.addDiagnostic(UNRESOLVABLE_REFLECTION_CLASS(location)).run { null }
-                            return "L${ldc.replace('.', '/')};"
-                        }
-                    }
-                }
-            }
-            INVOKEVIRTUAL, INVOKESPECIAL -> {
-                val insnNode = insn.getAndPrev() as MethodInsnNode
-                if (insnNode.owner == "java/lang/ClassLoader"
-                    && insnNode.name == "loadClass"
-                ) {
-                    when (insnNode.desc) {
-                        "(L${"java/lang/String"};)L${"java/lang/Class"};" -> {
-                            val ldc = ldcString(insn)
-                                ?: return env.addDiagnostic(UNRESOLVABLE_REFLECTION_CLASS(location)).run { null }
-                            return "L${ldc.replace('.', '/')};"
-                        }
-                        "(L${"java/lang/String"};B)L${"java/lang/Class"};" -> {
-                            // skip boolean
-                            skipValues(insn, 1)
-                                ?: return env.addDiagnostic(UNRESOLVABLE_REFLECTION_CLASS(location)).run { null }
-                            val ldc = ldcString(insn)
-                                ?: return env.addDiagnostic(UNRESOLVABLE_REFLECTION_CLASS(location)).run { null }
-                            return "L${ldc.replace('.', '/')};"
-                        }
-                    }
-                }
+            
+            fun init(
+                isStatic: Boolean, // null: static, others for instance method
+                methodDescriptor: String, 
+                maxLocals: Int,
+            ): StackFrame {
+                val types = Type.getType(methodDescriptor).argumentTypes
+                    .mapTo(arrayListOf<Any?>()) { Word.from(it.descriptor) }
+                if (!isStatic) types.add(0, Word.Single)
+                while (types.size < maxLocals) types.add(null)
+                return StackFrame(types, arrayListOf())
             }
         }
-        return null
+    }
+    companion object {
+        @JvmStatic
+        private fun VMType.toWord(): Word = when (this) {
+            VMType.Int -> Word.Single
+            VMType.Long -> Word.Double
+            VMType.Float -> Word.Single
+            VMType.Double -> Word.Double
+            VMType.Reference -> Word.Single
+            VMType.Byte -> Word.Single
+            VMType.Char -> Word.Single
+            VMType.Short -> Word.Single
+            VMType.Boolean -> Word.Single
+        }
+
+        @JvmStatic
+        private fun Any.toWord(): Word = when (this) {
+            is Long -> Word.Double
+            is Double -> Word.Double
+            is Word -> this
+            else -> Word.Single
+        }
+
+        @JvmStatic
+        private fun Constant.toFV(): Any = when (this::class) {
+            ConstantInt::class -> (this as ConstantInt).value
+            ConstantLong::class -> (this as ConstantLong).value
+            ConstantFloat::class -> (this as ConstantFloat).value
+            ConstantDouble::class -> (this as ConstantDouble).value
+            ConstantString::class -> (this as ConstantString).value
+            ConstantClass::class -> this
+            ConstantMethodType::class -> this
+            ConstantFieldHandle::class -> this
+            ConstantMethodHandle::class -> this
+            ConstantDynamic::class -> this
+            else -> assertError("unknwon constant type: ${this::class}")
+        }
+
+        @JvmStatic
+        private val NULL = Any()
+        @JvmStatic
+        private val Any.isOneWord get() = this != Word.Double && this !is Long && this !is Double
     }
 
-    internal fun resolveOnStackClassArray(insn: InsnContainer, env: ComputeReferenceEnvironment, location: Location): List<String>? {
-        val classes = arrayListOf<String?>()
-
-        while (insn.has() && insn.get().opcode == AASTORE) {
-            insn.prev()
-            val classDesc = resolveOnStackClass(insn, env, location) ?: return null
-            val index = loadInt(insn) ?: return null
-            if (insn.getAndPrev()?.opcode != DUP) return null
-            while (classes.size <= index) classes.add(null)
-            classes[index] = classDesc
+    private sealed class Word {
+        object Single : Word()
+        object Double : Word()
+        companion object {
+            fun from(descriptor: String): Word? = when (descriptor[0]) {
+                'V' -> null
+                'Z' -> Single
+                'C' -> Single
+                'B' -> Single
+                'S' -> Single
+                'I' -> Single
+                'F' -> Single
+                'J' -> Double
+                'D' -> Double
+                'L' -> Single
+                '[' -> Single
+                else -> error("unsupported descriptor: $descriptor")
+            }
         }
-
-        if (!(insn.has() 
-            && insn.get().opcode == ANEWARRAY 
-            && (insn.get() as TypeInsnNode).desc == "java/lang/Class"))
-            return null
-        insn.prev()
-        val size = loadInt(insn)
-        if (size != classes.size) return null
-        if (classes.any { it == null }) return null
-
-        @Suppress("UNCHECKED_CAST")
-        return classes as List<String>
-    }
-
-    private fun ldcString(insn: InsnContainer): String? =
-        (insn.getAndPrev() as? LdcInsnNode)?.cst as? String
-
-    private fun loadInt(insn: InsnContainer): Int? {
-        val value: Int = when (insn.get().opcode) {
-            in ICONST_M1..ICONST_5 -> insn.get().opcode - ICONST_0
-            BIPUSH, SIPUSH -> (insn.get() as IntInsnNode).operand
-            LDC -> (insn.getAndPrev() as? LdcInsnNode)?.cst as? Int ?: return null
-            else -> return null
-        }
-        insn.prev()
-        return value
-    }
-
-    private val diffs = ByteArray(256).apply {
-        // those insn push one value
-        this[ACONST_NULL] = -1
-        this[ICONST_M1] = -1
-        this[ICONST_0] = -1
-        this[ICONST_1] = -1
-        this[ICONST_2] = -1
-        this[ICONST_3] = -1
-        this[ICONST_4] = -1
-        this[ICONST_5] = -1
-        // those insn push one long, two sized value
-        this[LCONST_0] = -2
-        this[LCONST_1] = -2
-        // those insn push one value
-        this[FCONST_0] = -1
-        this[FCONST_1] = -1
-        this[FCONST_2] = -1
-        // those insn push one double, two sized value
-        this[DCONST_0] = -2
-        this[DCONST_1] = -2
-        // those insn push one value
-        this[BIPUSH] = -1
-        this[SIPUSH] = -1
-        // local loads
-        this[ILOAD] = -1
-        this[LLOAD] = -2
-        this[FLOAD] = -1
-        this[DLOAD] = -2
-        this[ALOAD] = -1
-        // array loads. +2: loads two values(array + index integer)
-        this[IALOAD] = +2 - 1
-        this[LALOAD] = +2 - 2
-        this[FALOAD] = +2 - 1
-        this[DALOAD] = +2 - 2
-        this[AALOAD] = +2 - 1
-        this[BALOAD] = +2 - 1
-        this[CALOAD] = +2 - 1
-        this[SALOAD] = +2 - 1
-        // local stores
-        this[ISTORE] = +1
-        this[LSTORE] = +2
-        this[FSTORE] = +1
-        this[DSTORE] = +2
-        this[ASTORE] = +1
-        // array loads. + 2: additionally loads two values(array + index integer)
-        this[IASTORE] = +1 + 2
-        this[LASTORE] = +2 + 2
-        this[FASTORE] = +1 + 2
-        this[DASTORE] = +2 + 2
-        this[AASTORE] = +1 + 2
-        this[BASTORE] = +1 + 2
-        this[CASTORE] = +1 + 2
-        this[SASTORE] = +1 + 2
-        // stack operations
-        this[POP] = +1
-        this[POP2] = +2
-        this[DUP] = +1 - 2
-        this[DUP_X1] = +2 - 3
-        this[DUP_X2] = +3 - 4
-        this[DUP2] = +2 - 3
-        this[DUP2_X1] = +3 - 4
-        this[DUP2_X2] = +4 - 5
-        this[SWAP] = +2 - 2
-        // binary number operations
-        this[IADD] = +2 - 1
-        this[LADD] = +4 - 2
-        this[FADD] = +2 - 1
-        this[DADD] = +4 - 2
-        this[ISUB] = +2 - 1
-        this[LSUB] = +4 - 2
-        this[FSUB] = +2 - 1
-        this[DSUB] = +4 - 2
-        this[IMUL] = +2 - 1
-        this[LMUL] = +4 - 2
-        this[FMUL] = +2 - 1
-        this[DMUL] = +4 - 2
-        this[IREM] = +2 - 1
-        this[LREM] = +4 - 2
-        this[FREM] = +2 - 1
-        this[DREM] = +4 - 2
-        this[IDIV] = +2 - 1
-        this[LDIV] = +4 - 2
-        this[FDIV] = +2 - 1
-        this[DDIV] = +4 - 2
-        // negative number operations
-        this[INEG] = +1 - 1
-        this[LNEG] = +2 - 2
-        this[FNEG] = +1 - 1
-        this[DNEG] = +2 - 2
-        // shift operations
-        this[ISHL] = +2 - 1
-        this[LSHL] = +3 - 2
-        this[ISHR] = +2 - 1
-        this[LSHR] = +3 - 2
-        this[IUSHR] = +2 - 1
-        this[LUSHR] = +3 - 2
-        // bit operations
-        this[IAND] = +2 - 1
-        this[LAND] = +4 - 2
-        this[IOR] = +2 - 1
-        this[LOR] = +4 - 2
-        this[IXOR] = +2 - 1
-        this[LXOR] = +4 - 2
-        // cast operation
-        this[I2L] = +1 - 2
-        this[I2F] = +1 - 1
-        this[I2D] = +1 - 2
-        this[L2I] = +2 - 1
-        this[L2F] = +2 - 1
-        this[L2D] = +2 - 2
-        this[F2I] = +1 - 1
-        this[F2L] = +1 - 2
-        this[F2D] = +1 - 2
-        this[D2I] = +2 - 1
-        this[D2L] = +2 - 2
-        this[D2F] = +2 - 1
-        this[I2B] = +1 - 1
-        this[I2C] = +1 - 1
-        this[I2S] = +1 - 1
-        // compare operation
-        this[LCMP] = +4 - 1
-        this[FCMPL] = +2 - 1
-        this[FCMPG] = +2 - 1
-        this[DCMPL] = +4 - 1
-        this[DCMPG] = +4 - 1
-        // object operations
-        this[NEW] = -1
-        this[NEWARRAY] = +1 - 1
-        this[ANEWARRAY] = +1 - 1
-        this[ARRAYLENGTH] = +1 - 1
-        this[INSTANCEOF] = +1 - 1
-    }
-
-    private fun skipValues(insn: InsnContainer, onStackSize: Int): Unit? {
-        fun valueSizeOfField(insn: AbstractInsnNode): Int {
-            insn as FieldInsnNode
-            return if (insn.desc[0] == 'D' && insn.desc[0] == 'J') 2 else 1
-        }
-        fun stackDiffOfStaticMethodDesc(desc: String): Int {
-            val sizes = Type.getArgumentsAndReturnSizes(desc)
-            val args = sizes shr 2
-            val ret = sizes and 0b11
-            return args - ret
-        }
-        fun stackDiffOfVirtualMethod(insn: AbstractInsnNode): Int =
-            stackDiffOfStaticMethodDesc((insn as MethodInsnNode).desc)
-        fun stackDiffOfIndy(insn: AbstractInsnNode): Int =
-            stackDiffOfStaticMethodDesc((insn as InvokeDynamicInsnNode).desc)
-
-        // subtract: store
-        // addition: load/pop
-        var toBeRemoved = onStackSize
-        while (insn.has() && toBeRemoved > 0) {
-            toBeRemoved += diffs
-                .getOrNull(insn.get().opcode)
-                ?.toInt()
-                ?.takeUnless { it == 0 }
-                ?: when (insn.get().opcode) {
-                    NOP -> 0
-                    // LDC
-                    LDC -> when ((insn.get() as LdcInsnNode).cst::class) {
-                        // one sized values
-                        Int::class -> -1
-                        Float::class -> -1
-                        String::class -> -1
-                        Type::class -> -1
-                        Handle::class -> -1
-                        ConstantDynamic::class -> -1
-                        // two sized values
-                        Double::class -> -2
-                        Long::class -> -2
-                        else -> return null
-                    }
-                    IINC -> 0
-                    GETSTATIC -> -valueSizeOfField(insn.get())
-                    PUTSTATIC -> +valueSizeOfField(insn.get())
-                    GETFIELD -> +1 - valueSizeOfField(insn.get())
-                    PUTFIELD -> +1 + valueSizeOfField(insn.get())
-                   INVOKEVIRTUAL -> +stackDiffOfVirtualMethod(insn.get())
-                    INVOKESPECIAL -> +stackDiffOfVirtualMethod(insn.get())
-                    INVOKESTATIC -> +stackDiffOfVirtualMethod(insn.get()) - 1 // remove this arg
-                    INVOKEINTERFACE -> +stackDiffOfVirtualMethod(insn.get())
-                    INVOKEDYNAMIC -> +stackDiffOfIndy(insn.get())
-                    CHECKCAST -> 0
-                    else -> return null
-                }
-            insn.prev()
-        }
-        return Unit
     }
 }
 
@@ -596,17 +832,17 @@ internal class ClassRefCollectingSignatureVisitor private constructor(
         ClassRefCollectingSignatureVisitor(references, env, innerClasses, location)
     }
 
-    private var classType: String? = null
+    private var classType: ClassReference? = null
 
     override fun visitClassType(name: String) {
-        classType = name
+        classType = ClassReference(name)
     }
 
     override fun visitInnerClassType(name: String) {
         classType = classType?.let { classType ->
             val foundInner = innerClasses.findInner(classType, name)
             if (foundInner == null)
-                env.addDiagnostic(UNRESOLVABLE_INNER_CLASS(classType, name, location))
+                env.addDiagnostic(UNRESOLVABLE_INNER_CLASS(classType.name, name, location))
             foundInner
         }
     }
@@ -615,7 +851,7 @@ internal class ClassRefCollectingSignatureVisitor private constructor(
 
     override fun visitEnd() {
         classType?.let { classType ->
-            references.add(ClassReference(classType))
+            references.add(classType)
         }
         classType = null
     }
@@ -636,68 +872,110 @@ internal class ClassRefCollectingSignatureVisitor private constructor(
     }
 }
 
-internal class ClassRefCollectingAnnotationVisitor(
-    val references: MutableCollection<in ClassReference>,
-    val env: ComputeReferenceEnvironment,
-): AnnotationVisitor(ASM9) {
-    override fun visit(name: String?, value: Any?) {
-        acceptValue(references, value)
+internal object ClassRefCollectingAnnotationVisitor {
+    fun acceptValue(references: MutableCollection<in ClassReference>, value: Constant?) {
+        if (value is ConstantClass)
+            newReference(Type.getType(value.descriptor))?.let(references::add)
     }
 
-    override fun visitAnnotation(name: String?, descriptor: String): AnnotationVisitor {
-        fromType(Type.getType(descriptor))?.let(references::add)
-        return this
+    fun acceptValue(references: MutableCollection<in ClassReference>, value: AnnotationValue?) {
+        if (value is ClassAnnotation)
+            references.add(value.annotationClass)
+        if (value is AnnotationClass)
+            newReference(Type.getType(value.descriptor))?.let(references::add)
+        if (value is AnnotationEnum)
+            references.add(value.owner)
     }
 
-    override fun visitArray(name: String?): AnnotationVisitor {
-        return this
-    }
-
-    override fun visitEnum(name: String?, descriptor: String, value: String) {
-        fromType(Type.getType(descriptor))?.let(references::add)
-    }
-
-    companion object Utils {
-        fun acceptValue(references: MutableCollection<in ClassReference>, value: Any?) {
-            if (value is Type)
-                fromType(value)?.let(references::add)
+    fun acceptValue(
+        references: MutableCollection<in ClassReference>,
+        env: ComputeReferenceEnvironment,
+        value: AnnotationValue,
+    ): Unit = when (value::class) {
+        ClassAnnotation::class -> acceptAnnotation(references, env, value as ClassAnnotation)
+        AnnotationByte::class -> {}
+        AnnotationBoolean::class -> {}
+        AnnotationChar::class -> {}
+        AnnotationShort::class -> {}
+        AnnotationInt::class -> {}
+        AnnotationLong::class -> {}
+        AnnotationFloat::class -> {}
+        AnnotationDouble::class -> {}
+        AnnotationString::class -> {}
+        AnnotationEnum::class -> acceptEnum(references, value as AnnotationEnum)
+        AnnotationClass::class -> acceptClass(references, value as AnnotationClass)
+        AnnotationArray::class -> {
+            for (classAnnotationValue in (value as AnnotationArray))
+                acceptValue(references, env, classAnnotationValue)
         }
+        else -> error("logic faiure")
+    }
 
-        fun acceptAnnotation(
-            visitor: ClassRefCollectingAnnotationVisitor,
-            annotation: AnnotationNode,
-        ) {
-            fromDescriptor(annotation.desc)?.let(visitor.references::add)
-            annotation.accept(visitor)
+    fun acceptEnum(
+        references: MutableCollection<in ClassReference>,
+        enum: AnnotationEnum,
+    ) {
+        references.add(enum.owner)
+    }
+
+    fun acceptClass(
+        references: MutableCollection<in ClassReference>,
+        clazz: AnnotationClass,
+    ) {
+        newReferenceDesc(clazz.descriptor)?.let(references::add)
+    }
+
+    fun acceptAnnotation(
+        references: MutableCollection<in ClassReference>,
+        env: ComputeReferenceEnvironment,
+        annotation: ClassAnnotation,
+    ) {
+        references.add(annotation.annotationClass)
+        for ((_, value) in annotation.values) {
+            acceptValue(references, env, value)
         }
+    }
 
-        fun acceptAnnotations(
-            references: MutableCollection<in ClassReference>,
-            env: ComputeReferenceEnvironment,
-            annotations: List<AnnotationNode>?,
-        ) {
-            if (annotations == null) return
-            val visitor = ClassRefCollectingAnnotationVisitor(references, env)
-            annotations.forEach { acceptAnnotation(visitor, it) }
-        }
+    fun acceptAnnotations(
+        references: MutableCollection<in ClassReference>,
+        env: ComputeReferenceEnvironment,
+        annotations: List<ClassAnnotation>,
+    ) {
+        annotations.forEach { acceptAnnotation(references, env, it) }
+    }
 
-        fun acceptAnnotations(
-            references: MutableCollection<in ClassReference>,
-            env: ComputeReferenceEnvironment,
-            annotations: Array<List<AnnotationNode>?>?,
-        ) {
-            if (annotations == null) return
-            val visitor = ClassRefCollectingAnnotationVisitor(references, env)
-            for (annotationNodes in annotations) {
-                annotationNodes?.forEach { acceptAnnotation(visitor, it) }
-            }
+    @JvmName("acceptAnnotations1")
+    fun acceptAnnotations(
+        references: MutableCollection<in ClassReference>,
+        env: ComputeReferenceEnvironment,
+        annotations: List<ClassTypeAnnotation>,
+    ) {
+        annotations.forEach { acceptAnnotation(references, env, it.annotation) }
+    }
+
+    @JvmName("acceptAnnotations2")
+    fun acceptAnnotations(
+        references: MutableCollection<in ClassReference>,
+        env: ComputeReferenceEnvironment,
+        annotations: List<ClassLocalVariableAnnotation>,
+    ) {
+        annotations.forEach { acceptAnnotation(references, env, it.annotation) }
+    }
+
+    fun acceptAnnotations(
+        references: MutableCollection<in ClassReference>,
+        env: ComputeReferenceEnvironment,
+        annotations: Array<List<ClassAnnotation>?>,
+    ) {
+        for (annotationNodes in annotations) {
+            annotationNodes?.forEach { acceptAnnotation(references, env, it) }
         }
     }
 }
 
-internal suspend fun ComputeReferenceEnvironment.findClassOrError(name: String, location: Location): ClassFile? {
+internal suspend fun ComputeReferenceEnvironment.findClassOrError(name: ClassReference, location: Location): ClassFile? {
     return classpath.findClass(name) ?: kotlin.run {
-        addDiagnostic(UNRESOLVABLE_CLASS(name, location))
+        addDiagnostic(UNRESOLVABLE_CLASS(name.name, location))
         null
     }
 }
@@ -709,7 +987,7 @@ internal class ParentClasses(
     val proceed = mutableSetOf(entry)
     val toBeProceed = LinkedList<ClassFile>().apply { add(entry) }
     val location = Location.Class(entry)
-    var superNames = sequenceOf<String?>().iterator()
+    var superNames = sequenceOf<ClassReference?>().iterator()
     var prevReturned: ClassFile? = null
 
     init {
@@ -743,7 +1021,31 @@ internal class ParentClasses(
 
     private fun updateSuperNames(): Boolean {
         val first = toBeProceed.pollFirst() ?: return false
-        superNames = (sequenceOf(first.main.superName) + first.main.interfaces).iterator()
+        superNames = (sequenceOf(first.superName) + first.interfaces).iterator()
         return true
     }
 }
+
+private fun newReference(type: Type): ClassReference? {
+    return when (type.sort) {
+        Type.VOID -> null
+        Type.BOOLEAN -> null
+        Type.CHAR -> null
+        Type.BYTE -> null
+        Type.SHORT -> null
+        Type.INT -> null
+        Type.FLOAT -> null
+        Type.LONG -> null
+        Type.DOUBLE -> null
+        Type.ARRAY -> newReference(type.elementType)
+        Type.OBJECT -> ClassReference(type.internalName)
+        Type.METHOD -> throw IllegalArgumentException("The type is not type, a METHOD.")
+        else -> throw IllegalArgumentException("Unknown sort of type: ${type.sort}")
+    }
+}
+
+private fun newReference(internalName: String): ClassReference? =
+    newReference(Type.getObjectType(internalName))
+
+private fun newReferenceDesc(descriptor: String): ClassReference? =
+    newReference(Type.getType(descriptor))

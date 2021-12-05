@@ -70,6 +70,7 @@ internal class EmbeddableClassPath(files: List<File>): ClassPath(files) {
                 .map { path ->
                     launch {
                         val name = path.replace('/', '.').removeSuffix(".class")
+                        if (name.endsWith("module-info")) return@launch // TODO: temporal until module support
                         classTree[name] = ClassFile.read(loadFile(path)!!, this@EmbeddableClassPath)
                     }
                 }

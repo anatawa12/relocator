@@ -1,170 +1,183 @@
 package com.anatawa12.relocator.internal
 
+import com.anatawa12.relocator.classes.*
 import com.anatawa12.relocator.diagnostic.Location
-import com.anatawa12.relocator.internal.ExtraReferenceDetector.InsnContainer
-import com.anatawa12.relocator.internal.ExtraReferenceDetector.detectExtraReference
-import com.anatawa12.relocator.internal.ExtraReferenceDetector.resolveOnStackClass
-import com.anatawa12.relocator.internal.ExtraReferenceDetector.resolveOnStackClassArray
-import com.anatawa12.relocator.reference.FieldReference
-import com.anatawa12.relocator.reference.MethodReference
+import com.anatawa12.relocator.reference.*
 
 import org.amshove.kluent.*
 import org.junit.jupiter.api.Test
-import org.objectweb.asm.Opcodes.*
-import org.objectweb.asm.Type
-import org.objectweb.asm.tree.*
 
 internal class ExtraReferenceDetectorTest {
-    val env = newComputeReferenceEnvironment()
-    val location = Location.None
+    private val env = newComputeReferenceEnvironment()
+    private val location = Location.None
+
+    private fun detectExtraReference(list: List<Insn>): Set<Reference> {
+        val references = mutableSetOf<Reference>()
+        ExtraReferenceDetector(true, "()V", 5,
+            env, location, list, references, emptySet())
+            .collectExtraReferences()
+        return references
+    }
+
+    private fun checkOnStackValue(list: List<Insn>): Any {
+        val references = mutableSetOf<Reference>()
+        val detector = ExtraReferenceDetector(true, "()V", 5,
+            env, location, list, references, emptySet())
+        detector.collectExtraReferences()
+        return detector.pop()
+    }
 
     @Test
     fun detectExtraMethodReference() {
-        detectExtraReference(stringFormat.last, env, location) `should be equal to` MethodReference(
+        detectExtraReference(stringFormat) `should contain` MethodReference(
             "java/lang/String",
             "format",
             "(Ljava/util/Locale;Ljava/lang/String;[Ljava/lang/Object;)")
-        detectExtraReference(stringIndexOf.last, env, location) `should be equal to` MethodReference(
+        detectExtraReference(stringIndexOf) `should contain` MethodReference(
             "java/lang/String",
             "indexOf",
             "(I)")
     }
     @Test
     fun detectExtraFieldReference() {
-        detectExtraReference(stringCaseInsensitiveOrder.last, env, location) `should be equal to` FieldReference(
+        detectExtraReference(stringCaseInsensitiveOrder) `should contain` PartialFieldReference(
             "java/lang/String",
-            "CASE_INSENSITIVE_ORDER",
-            null)
+            "CASE_INSENSITIVE_ORDER")
     }
 
     @Test
     fun resolveOnStackClass() {
-        resolveOnStackClass(InsnContainer.get(simpleReflectionString.last), env, location) `should be equal to`
-                "L${"java/lang/String"};"
-        resolveOnStackClass(InsnContainer.get(withClassLoaderReflectionString.last), env, location) `should be equal to`
-                "L${"java/lang/String"};"
-        resolveOnStackClass(InsnContainer.get(loadClassFunctionReflectionString.last), env, location) `should be equal to`
-                "L${"java/lang/String"};"
-        resolveOnStackClass(InsnContainer.get(FieldInsnNode(GETSTATIC, 
-            "java/lang/Integer", 
-            "TYPE", 
-            "Ljava/lang/Class;")), env, location) `should be equal to` "I"
+        checkOnStackValue(simpleReflectionString) `should be equal to`
+                ConstantClass("L${"java/lang/String"};")
+        checkOnStackValue(withClassLoaderReflectionString) `should be equal to`
+                ConstantClass("L${"java/lang/String"};")
+        checkOnStackValue(loadClassFunctionReflectionString) `should be equal to`
+                ConstantClass("L${"java/lang/String"};")
+        checkOnStackValue(listOf(
+            FieldInsn(FieldInsnType.GETSTATIC, FieldReference("java/lang/Integer", "TYPE", "Ljava/lang/Class;"))
+        )) `should be equal to` ConstantClass("I")
     }
 
     @Test
     fun resolveOnStackClassArray() {
-        resolveOnStackClassArray(InsnContainer.get(localeStringObjectClassList.last), env, location) `should be equal to`
-                listOf("Ljava/util/Locale;", "Ljava/lang/String;", "[Ljava/lang/Object;")
-        resolveOnStackClassArray(InsnContainer.get(intClassList.last), env, location) `should be equal to`
-                listOf("I")
+        checkOnStackValue(localeStringObjectClassList) `should be equal to`
+                listOf(ConstantClass("Ljava/util/Locale;"), ConstantClass("Ljava/lang/String;"), ConstantClass("[Ljava/lang/Object;"))
+        checkOnStackValue(intClassList) `should be equal to`
+                listOf(ConstantClass("I"))
     }
 
-    val simpleReflectionString = InsnList().apply {
-        add(LdcInsnNode("java.lang.String"))
-        add(MethodInsnNode(INVOKESTATIC,
-            "java/lang/Class",
-            "forName",
-            "(L${"java/lang/String"};)L${"java/lang/Class"};"))
+    private val simpleReflectionString = buildList {
+        add(LdcInsn(ConstantString("java.lang.String")))
+        add(MethodInsn(MethodInsnType.INVOKESTATIC,
+            MethodReference(
+                "java/lang/Class",
+                "forName",
+                "(L${"java/lang/String"};)L${"java/lang/Class"};"),
+            false))
     }
 
-    val withClassLoaderReflectionString = InsnList().apply {
-        add(LdcInsnNode("java.lang.String"))
-        add(InsnNode(ICONST_1))
-        add(LdcInsnNode(Type.getObjectType("com/anatawa12/Test")))
-        add(MethodInsnNode(INVOKEVIRTUAL,
-            "java/lang/Class",
-            "getClassLoader",
-            "()L${"java/lang/ClassLoader"};"))
-        add(MethodInsnNode(INVOKESTATIC,
-            "java/lang/Class",
-            "forName",
-            "(L${"java/lang/String"};BL${"java/lang/ClassLoader"};)L${"java/lang/Class"};"))
+    private val withClassLoaderReflectionString = buildList {
+        add(LdcInsn(ConstantString("java.lang.String")))
+        add(LdcInsn(ConstantInt(1)))
+        add(LdcInsn(ConstantClass("L${"com/anatawa12/Test"};")))
+        add(MethodInsn(MethodInsnType.INVOKEVIRTUAL,
+            MethodReference(
+                "java/lang/Class",
+                "getClassLoader",
+                "()L${"java/lang/ClassLoader"};"),
+            false))
+        add(MethodInsn(MethodInsnType.INVOKESTATIC,
+            MethodReference(
+                "java/lang/Class",
+                "forName",
+                "(L${"java/lang/String"};BL${"java/lang/ClassLoader"};)L${"java/lang/Class"};"),
+            false))
     }
 
-    val loadClassFunctionReflectionString = InsnList().apply {
-        add(LdcInsnNode(Type.getObjectType("com/anatawa12/Test")))
-        add(MethodInsnNode(INVOKEVIRTUAL,
-            "java/lang/Class",
-            "getClassLoader",
-            "()L${"java/lang/ClassLoader"};"))
-        add(LdcInsnNode("java.lang.String"))
-        add(MethodInsnNode(INVOKEVIRTUAL,
-            "java/lang/ClassLoader",
-            "loadClass",
-            "(L${"java/lang/String"};)L${"java/lang/Class"};"))
+    private val loadClassFunctionReflectionString = buildList {
+        add(LdcInsn(ConstantClass("com/anatawa12/Test")))
+        add(MethodInsn(MethodInsnType.INVOKEVIRTUAL,
+            MethodReference(
+                "java/lang/Class",
+                "getClassLoader",
+                "()L${"java/lang/ClassLoader"};"),
+            false))
+        add(LdcInsn(ConstantString("java.lang.String")))
+        add(MethodInsn(MethodInsnType.INVOKEVIRTUAL,
+            MethodReference(
+                "java/lang/ClassLoader",
+                "loadClass",
+                "(L${"java/lang/String"};)L${"java/lang/Class"};"),
+            false))
     }
 
-    val localeStringObjectClassList = InsnList().apply {
-        add(InsnNode(ICONST_3))
-        add(TypeInsnNode(ANEWARRAY, "java/lang/Class"))
+    private val localeStringObjectClassList = buildList {
+        add(LdcInsn(ConstantInt(3)))
+        add(TypeInsn(TypeInsnType.ANEWARRAY, ClassReference("java/lang/Class")))
 
-        add(InsnNode(DUP))
-        add(InsnNode(ICONST_0))
-        add(LdcInsnNode(Type.getType("Ljava/util/Locale;")))
-        add(InsnNode(AASTORE))
+        add(SimpleInsn(SimpleInsnType.DUP))
+        add(LdcInsn(ConstantInt(0)))
+        add(LdcInsn(ConstantClass("Ljava/util/Locale;")))
+        add(TypedInsn(TypedInsnType.ASTORE, VMType.Reference))
 
-        add(InsnNode(DUP))
-        add(InsnNode(ICONST_1))
-        add(LdcInsnNode(Type.getType("Ljava/lang/String;")))
-        add(InsnNode(AASTORE))
+        add(SimpleInsn(SimpleInsnType.DUP))
+        add(LdcInsn(ConstantInt(1)))
+        add(LdcInsn(ConstantClass("Ljava/lang/String;")))
+        add(TypedInsn(TypedInsnType.ASTORE, VMType.Reference))
 
-        add(InsnNode(DUP))
-        add(InsnNode(ICONST_2))
-        add(LdcInsnNode(Type.getType("[Ljava/lang/Object;")))
-        add(InsnNode(AASTORE))
+        add(SimpleInsn(SimpleInsnType.DUP))
+        add(LdcInsn(ConstantInt(2)))
+        add(LdcInsn(ConstantClass("[Ljava/lang/Object;")))
+        add(TypedInsn(TypedInsnType.ASTORE, VMType.Reference))
     }
 
-    val intClassList = InsnList().apply {
-        add(InsnNode(ICONST_1))
-        add(TypeInsnNode(ANEWARRAY, "java/lang/Class"))
+    private val intClassList = buildList {
+        add(LdcInsn(ConstantInt(1)))
+        add(TypeInsn(TypeInsnType.ANEWARRAY, ClassReference("java/lang/Class")))
 
-        add(InsnNode(DUP))
-        add(InsnNode(ICONST_0))
-        add(FieldInsnNode(GETSTATIC,
-            "java/lang/Integer",
-            "TYPE",
-            "Ljava/lang/Class;"))
-        add(InsnNode(AASTORE))
+        add(SimpleInsn(SimpleInsnType.DUP))
+        add(LdcInsn(ConstantInt(0)))
+        add(FieldInsn(FieldInsnType.GETSTATIC,
+            FieldReference("java/lang/Integer",
+                "TYPE",
+                "Ljava/lang/Class;")))
+        add(TypedInsn(TypedInsnType.ASTORE, VMType.Reference))
     }
 
-    val stringFormat = InsnList().apply {
-        add(LdcInsnNode(Type.getType("Ljava/lang/String;")))
-        add(LdcInsnNode("format"))
+    private val stringFormat = buildList {
+        add(LdcInsn(ConstantClass("Ljava/lang/String;")))
+        add(LdcInsn(ConstantString("format")))
 
-        add(localeStringObjectClassList.clone())
+        addAll(localeStringObjectClassList)
 
-        add(MethodInsnNode(INVOKEVIRTUAL,
-            "java/lang/Class",
-            "getMethod",
-            "(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;"))
+        add(MethodInsn(MethodInsnType.INVOKEVIRTUAL,
+            MethodReference("java/lang/Class",
+                "getMethod",
+                "(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;"), 
+            false))
     }
 
-    val stringIndexOf = InsnList().apply {
-        add(LdcInsnNode(Type.getType("Ljava/lang/String;")))
-        add(LdcInsnNode("indexOf"))
+    private val stringIndexOf = buildList {
+        add(LdcInsn(ConstantClass("Ljava/lang/String;")))
+        add(LdcInsn(ConstantString("indexOf")))
 
-        add(intClassList.clone())
+        addAll(intClassList)
 
-        add(MethodInsnNode(INVOKEVIRTUAL,
-            "java/lang/Class",
-            "getMethod",
-            "(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;"))
+        add(MethodInsn(MethodInsnType.INVOKEVIRTUAL,
+            MethodReference("java/lang/Class",
+                "getMethod",
+                "(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;"), 
+            false))
     }
 
-    val stringCaseInsensitiveOrder = InsnList().apply {
-        add(LdcInsnNode(Type.getType("Ljava/lang/String;")))
-        add(LdcInsnNode("CASE_INSENSITIVE_ORDER"))
+    private val stringCaseInsensitiveOrder = buildList {
+        add(LdcInsn(ConstantClass("Ljava/lang/String;")))
+        add(LdcInsn(ConstantString("CASE_INSENSITIVE_ORDER")))
 
-        add(MethodInsnNode(INVOKEVIRTUAL,
-            "java/lang/Class",
-            "getField",
-            "(Ljava/lang/String;)Ljava/lang/reflect/Field;"))
-    }
-
-    private fun InsnList.clone(): InsnList = InsnList().also { newList ->
-        val labelMap = mutableMapOf<LabelNode, LabelNode>()
-        for (node in this) {
-            newList.add(node.clone(labelMap))
-        }
+        add(MethodInsn(MethodInsnType.INVOKEVIRTUAL,
+            MethodReference("java/lang/Class",
+                "getField",
+                "(Ljava/lang/String;)Ljava/lang/reflect/Field;"), 
+            false))
     }
 }

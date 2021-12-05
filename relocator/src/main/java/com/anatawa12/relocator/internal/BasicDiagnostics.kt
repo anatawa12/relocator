@@ -3,6 +3,8 @@ package com.anatawa12.relocator.internal
 import com.anatawa12.relocator.diagnostic.DiagnosticContainer
 
 object BasicDiagnostics : DiagnosticContainer() {
+    val UNSUPPORTED_ATTRIBUTE = error("UNSUPPORTED_ATTRIBUTE", String) { name -> "the attribute '$name' not supported" }
+
     val UNRESOLVABLE_INNER_CLASS = warning("UNRESOLVABLE_INNER_CLASS", String, String) { outer, inner ->
         "the internal name of '$outer.$inner' not found."
     }

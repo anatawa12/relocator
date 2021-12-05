@@ -1,22 +1,25 @@
 package com.anatawa12.relocator.internal
 
-import org.objectweb.asm.tree.InnerClassNode
+import com.anatawa12.relocator.classes.ClassInnerClass
+import com.anatawa12.relocator.reference.ClassReference
 
 internal class InnerClassContainer(
-    innerClasses: List<InnerClassNode>,
+    innerClasses: List<ClassInnerClass>,
 ) {
-    private val byName: MutableMap<Pair<String, String>, InnerClassNode> = hashMapOf()
+    private val byName: MutableMap<Pair<ClassReference, String>, ClassInnerClass> = hashMapOf()
 
     init {
         innerClasses.forEach(::add)
     }
 
-    private fun add(node: InnerClassNode) {
-        if (node.outerName != null && node.innerName != null)
-            byName[node.outerName to node.innerName] = node
+    private fun add(node: ClassInnerClass) {
+        val outerName = node.outerName
+        val innerName = node.innerName
+        if (outerName != null && innerName != null)
+            byName[outerName to innerName] = node
     }
 
-    fun findInner(classType: String, name: String): String? {
+    fun findInner(classType: ClassReference, name: String): ClassReference? {
         return byName[classType to name]?.name
     }
 }

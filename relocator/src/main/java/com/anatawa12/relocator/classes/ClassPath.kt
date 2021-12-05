@@ -1,9 +1,7 @@
 package com.anatawa12.relocator.classes
 
 import com.anatawa12.relocator.internal.ClassContainer
-import com.anatawa12.relocator.reference.ClassReference
-import com.anatawa12.relocator.reference.FieldReference
-import com.anatawa12.relocator.reference.MethodReference
+import com.anatawa12.relocator.reference.*
 import kotlinx.coroutines.flow.*
 import java.io.File
 import java.util.*
@@ -39,14 +37,14 @@ class CombinedClassPath(
     suspend fun findClass(ref: ClassReference): ClassFile? =
         classpath.firstNotNullOfOrNull { it.findClass(ref.name) }
 
-    private suspend inline fun deepClasses(rootClass: String): Flow<ClassFile> = flow {
-        val classes = LinkedList<String>()
+    private suspend inline fun deepClasses(rootClass: ClassReference): Flow<ClassFile> = flow {
+        val classes = LinkedList<ClassReference>()
         classes.add(rootClass)
         while (classes.isNotEmpty()) {
             val classFile = findClass(classes.removeFirst()) ?: continue
             emit(classFile)
-            classFile.main.superName?.let(classes::addFirst)
-            classes.addAll(0, classFile.main.interfaces)
+            classFile.superName?.let(classes::addFirst)
+            classes.addAll(0, classFile.interfaces)
         }
     }
 
@@ -55,8 +53,17 @@ class CombinedClassPath(
             .mapNotNull { it.findMethod(ref) }
             .firstOrNull()
 
-    suspend fun findFields(ref: FieldReference): List<ClassField> = 
-        if (ref.descriptor != null)
-            listOfNotNull(deepClasses(ref.owner).mapNotNull { it.findField(ref.name, ref.descriptor) }.firstOrNull())
-        else deepClasses(ref.owner).flatMapConcat { it.findFields(ref).asFlow() }.toList()
+    @Suppress("EXPERIMENTAL_API_USAGE")
+    suspend fun findMethods(ref: PartialMethodReference): List<ClassMethod> =
+        deepClasses(ref.owner).flatMapMerge { it.findMethods(ref).asFlow() }.toList()
+
+    suspend fun findField(ref: FieldReference): ClassField? =
+        deepClasses(ref.owner).mapNotNull { it.findField(ref) }.firstOrNull()
+
+    @Suppress("EXPERIMENTAL_API_USAGE")
+    suspend fun findFields(ref: PartialFieldReference): List<ClassField> =
+        deepClasses(ref.owner).flatMapMerge { it.findFields(ref).asFlow() }.toList()
+
+    suspend fun findRecordField(ref: RecordFieldReference): ClassRecordField? =
+        deepClasses(ref.owner).mapNotNull { it.findRecordField(ref.name, ref.descriptor) }.firstOrNull()
 }
