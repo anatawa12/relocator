@@ -16,7 +16,6 @@ repositories {
 dependencies {
     implementation(kotlin("stdlib"))
     implementation("org.ow2.asm:asm:9.2")
-    implementation("org.ow2.asm:asm-util:9.2")
     implementation("com.google.guava:guava:31.0.1-jre")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2")
 
