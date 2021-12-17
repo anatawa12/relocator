@@ -384,11 +384,15 @@ object Reflects {
             "(L${"java/lang/String"};BL${"java/lang/ClassLoader"};)L${"java/lang/Class"};") to
                 ClassRef.Named(StringRef.Param(0)),
         MethodReference("java/lang/Class", "getField", "(L${"java/lang/String"};)L${"java/lang/reflect/Field"};") to
-                FieldRef(ClassRef.param(-1), StringRef.Param(0), null),
+                FieldRef(ClassRef.thisParam, StringRef.Param(0), null),
         MethodReference("java/lang/Class",
             "getMethod",
             "(L${"java/lang/String"};[L${"java/lang/Class"};)L${"java/lang/reflect/Method"};") to
-                MethodRef(ClassRef.param(-1), StringRef.Param(0), MethodTypeRef.ParameterTypes(1)),
+                MethodRef(ClassRef.thisParam, StringRef.Param(0), MethodTypeRef.ParameterTypes(1)),
+        MethodReference("java/lang/Class",
+            "getConstructor",
+            "([L${"java/lang/Class"};)L${"java/lang/reflect/Constructor"};") to
+                MethodRef(ClassRef.thisParam, StringRef.Constant("<init>"), MethodTypeRef.ParameterTypes(0)),
     )
 
     // TODO
