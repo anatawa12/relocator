@@ -336,6 +336,38 @@ fun getParamName(index: Int): String {
 }
 
 object Reflects {
+    val classTypes = setOf(
+        "L${"java/lang/Class"};",
+        "L${"java/lang/Object"};",
+        "L${"java/io/Serializable"};", 
+        "L${"java/lang/constant/Constable"};", 
+        "L${"java/lang/invoke/TypeDescriptor"};",
+        "L${"java/lang/invoke/TypeDescriptor\$OfField"};",
+        "L${"java/lang/reflect/AnnotatedElement"};",
+        "L${"java/lang/reflect/GenericDeclaration"};",
+        "L${"java/lang/reflect/Type"};",
+    )
+
+    val fieldTypes = setOf(
+        "L${"java/lang/reflect/Field"};",
+        "L${"java/lang/reflect/AccessibleObject"};",
+        "L${"java/lang/Object"};",
+        "L${"java/lang/reflect/AnnotatedElement"};",
+        "L${"java/lang/reflect/Member"};",
+    )
+
+    val methodTypes = setOf(
+        "L${"java/lang/reflect/Method"};",
+        "L${"java/lang/reflect/Constructor"};",
+        "L${"java/lang/reflect/Executable"};",
+        "L${"java/lang/reflect/AccessibleObject"};",
+        "L${"java/lang/Object"};",
+        "L${"java/lang/reflect/Executable"};",
+        "L${"java/lang/reflect/AnnotatedElement"};",
+        "L${"java/lang/reflect/GenericDeclaration"};",
+        "L${"java/lang/reflect/Member"};",
+    )
+
     val defaultMethodMap: MutableMap<MethodReference, MemberRef> = mutableMapOf(
         MethodReference("java/lang/ClassLoader", "loadClass", "(L${"java/lang/String"};)L${"java/lang/Class"};") to
                 ClassRef.Named(StringRef.Param(0)),
