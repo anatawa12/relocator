@@ -1,6 +1,12 @@
 package com.anatawa12.relocator.internal
 
 import com.anatawa12.relocator.classes.*
+import com.anatawa12.relocator.reference.FieldReference
+import com.anatawa12.relocator.reference.MethodReference
+import com.anatawa12.relocator.reflect.ReflectionMappingContainer
+import com.anatawa12.relocator.reflect.StringRef as PublicStringRef
+import com.anatawa12.relocator.reflect.ClassRef as PublicClassRef
+import com.anatawa12.relocator.reflect.MethodTypeRef as PublicMethodTypeRef
 
 internal lateinit var ownerAccessorCodeLabel: OwnerAccessor<CodeLabel, Insn>
 internal val CodeLabel.target get() = ownerAccessorCodeLabel.get(this)
@@ -34,6 +40,21 @@ internal fun ClassField.withUnknownAttrs(attrs: List<String>) = apply { unknownA
 
 internal lateinit var unknownAttrsSetterClassRecordField: ClassRecordField.(List<String>) -> Unit
 internal fun ClassRecordField.withUnknownAttrs(attrs: List<String>) = apply { unknownAttrsSetterClassRecordField(attrs) }
+
+internal lateinit var publicToInternalStringRef: PublicStringRef.() -> StringRef
+internal val PublicStringRef.internal get() = publicToInternalStringRef()
+
+internal lateinit var publicToInternalClassRef: PublicClassRef.() -> ClassRef
+internal val PublicClassRef.internal get() = publicToInternalClassRef()
+
+internal lateinit var publicToInternalMethodTypeRef: PublicMethodTypeRef.() -> MethodTypeRef
+internal val PublicMethodTypeRef.internal get() = publicToInternalMethodTypeRef()
+
+internal lateinit var reflectionMappingMethods: ReflectionMappingContainer.() -> MutableMap<MethodReference, MemberRef>
+internal val ReflectionMappingContainer.methods get() = reflectionMappingMethods()
+
+internal lateinit var reflectionMappingFields: ReflectionMappingContainer.() -> MutableMap<FieldReference, MemberRef>
+internal val ReflectionMappingContainer.fields get() = reflectionMappingFields()
 
 @Suppress("ObjectPropertyName", "unused")
 private val _init = run<Unit> {
@@ -108,6 +129,10 @@ private val _init = run<Unit> {
             )
         ),
     )
+    PublicStringRef.thisParam
+    PublicClassRef.thisParam
+    MethodTypeRef.thisParam
+    ReflectionMappingContainer()
 
     ownerAccessorCodeLabel
     ownerAccessorLocalVariable
@@ -119,4 +144,9 @@ private val _init = run<Unit> {
     unknownAttrsSetterClassMethod
     unknownAttrsSetterClassField
     unknownAttrsSetterClassRecordField
+    publicToInternalStringRef
+    publicToInternalClassRef
+    publicToInternalMethodTypeRef
+    reflectionMappingMethods
+    reflectionMappingFields
 }

@@ -14,6 +14,7 @@ import com.anatawa12.relocator.internal.ClassRefCollectingAnnotationVisitor.acce
 import com.anatawa12.relocator.internal.ClassRefCollectingAnnotationVisitor.acceptValue
 import com.anatawa12.relocator.internal.ClassRefCollectingSignatureVisitor.Utils.acceptSignature
 import com.anatawa12.relocator.reference.*
+import com.anatawa12.relocator.reflect.ReflectionMappingContainer
 import com.google.common.annotations.VisibleForTesting
 import org.objectweb.asm.Opcodes.*
 import org.objectweb.asm.Type
@@ -23,6 +24,7 @@ import java.util.*
 
 internal class ComputeReferenceEnvironment(
     val keepRuntimeInvisibleAnnotation: Boolean,
+    val reflectionMap: ReflectionMappingContainer,
     val classpath: CombinedClassPath,
     val addDiagnostic: DiagnosticHandler,
 )

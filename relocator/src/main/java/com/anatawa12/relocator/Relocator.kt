@@ -2,8 +2,10 @@ package com.anatawa12.relocator
 
 import com.anatawa12.relocator.diagnostic.DiagnosticException
 import com.anatawa12.relocator.diagnostic.DiagnosticHandler
-import com.anatawa12.relocator.internal.*
-import kotlinx.coroutines.*
+import com.anatawa12.relocator.internal.RelocatingEnvironment
+import com.anatawa12.relocator.internal.ThrowingDiagnosticHandler
+import com.anatawa12.relocator.reflect.ReflectionMappingContainer
+import kotlinx.coroutines.Dispatchers
 import java.io.File
 import java.nio.channels.CompletionHandler
 import java.util.*
@@ -62,6 +64,7 @@ class Relocator {
         _rootPath.add(rootPath)
     }
 
+    val reflectionMap = ReflectionMappingContainer()
 
     /**
      * @implSpec the map is ordered by length of package

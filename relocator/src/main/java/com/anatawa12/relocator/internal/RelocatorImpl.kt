@@ -42,6 +42,7 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
         classpath = CombinedClassPath(listOf(roots, embeds, refers))
         val computeReferenceEnv = ComputeReferenceEnvironment(
             relocator.keepRuntimeInvisibleAnnotation,
+            relocator.reflectionMap,
             classpath,
             diagnosticHandler,
         )
