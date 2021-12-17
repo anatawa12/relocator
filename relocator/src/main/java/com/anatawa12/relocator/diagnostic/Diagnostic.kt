@@ -1,11 +1,5 @@
 package com.anatawa12.relocator.diagnostic
 
-import com.anatawa12.relocator.classes.ClassFile
-import org.objectweb.asm.tree.FieldNode
-import org.objectweb.asm.tree.LocalVariableNode
-import org.objectweb.asm.tree.MethodNode
-import org.objectweb.asm.tree.RecordComponentNode
-
 class Diagnostic internal constructor(
     val type: BasicDiagnosticType,
     val location: Location,

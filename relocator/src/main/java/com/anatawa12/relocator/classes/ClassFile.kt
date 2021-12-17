@@ -100,10 +100,14 @@ fun ClassFile.findMethod(ref: MethodReference): ClassMethod? =
     findMethod(ref.name, ref.descriptor)
 fun ClassFile.findMethods(ref: PartialMethodReference): List<ClassMethod> =
     this@findMethods.findMethods(ref.name, ref.descriptor)
+fun ClassFile.findMethods(ref: TypelessMethodReference): List<ClassMethod> =
+    this@findMethods.findMethods(ref.name)
 fun ClassFile.findMethod(name: String, desc: String): ClassMethod? =
     methods.firstOrNull { it.name == name && it.descriptor == desc }
 fun ClassFile.findMethods(name: String, desc: String): List<ClassMethod> =
     methods.filter { it.name == name && it.descriptor.startsWith(desc) }
+fun ClassFile.findMethods(name: String): List<ClassMethod> =
+    methods.filter { it.name == name }
 fun ClassFile.findField(ref: FieldReference): ClassField? =
     findField(ref.name, ref.descriptor)
 fun ClassFile.findField(name: String, desc: String): ClassField? =

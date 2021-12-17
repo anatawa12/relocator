@@ -105,6 +105,33 @@ class PartialMethodReference(
         .times(31).plus(descriptor.hashCode())
 }
 
+class TypelessMethodReference(
+    /**
+     * The owner of class.
+     */
+    val owner: ClassReference,
+    /**
+     * The name of the method.
+     */
+    val name: String,
+): Reference() {
+    constructor(owner: String, name: String) :
+            this(ClassReference(owner), name)
+
+    constructor(method: ClassMethod): this(method.owner.name, method.name)
+
+    override fun toString(): String = "methods ${owner.name}.$name"
+
+    override fun equals(other: Any?): Boolean = this === other
+            || other is TypelessMethodReference
+            && owner == other.owner
+            && name == other.name
+
+    override fun hashCode(): Int = 0
+        .times(31).plus(owner.hashCode())
+        .times(31).plus(name.hashCode())
+}
+
 /**
  * @param name The name of the class. This must be either binary name or internal form of binary class name.
  */

@@ -584,81 +584,47 @@ internal class ExtraReferenceDetector(
     }
 
     private fun processExtraReference(field: FieldReference, @Suppress("UNUSED_PARAMETER") self: Any?): Any? {
-        if (field.name == "TYPE" && field.descriptor == "L${"java/lang/Class"};") {
-            when (field.owner.name) {
-                "java/lang/Void" -> return ConstantClass("V")
-                "java/lang/Integer" -> return ConstantClass("I")
-                "java/lang/Long" -> return ConstantClass("J")
-                "java/lang/Float" -> return ConstantClass("F")
-                "java/lang/Double" -> return ConstantClass("D")
-                "java/lang/Byte" -> return ConstantClass("B")
-                "java/lang/Character" -> return ConstantClass("C")
-                "java/lang/Short" -> return ConstantClass("S")
-                "java/lang/Boolean" -> return ConstantClass("Z")
+        val memberRef = env.reflectionMap.fields[field] ?: return null
+        return when (val resolved = memberRef.resolve(ParametersContainer(self, emptyList()))) {
+            null -> when (memberRef) {
+                is ClassRef -> addDiagnostic(UNRESOLVABLE_REFLECTION_CLASS(location))
+                is FieldRef -> addDiagnostic(UNRESOLVABLE_REFLECTION_FIELD(location))
+                is MethodRef -> addDiagnostic(UNRESOLVABLE_REFLECTION_METHOD(location))
             }
+            is Constant -> {
+                processConstant(resolved, references)
+                resolved.toFV()
+            }
+            is Reference -> {
+                references.add(resolved)
+                null
+            }
+            else -> assertError("logic failure")
         }
-        return null
+    }
+
+    private fun processExtraReference(method: MethodReference, self: Any?, args: List<Any>): Any? {
+        val memberRef = env.reflectionMap.methods[method] ?: return null
+        return when (val resolved = memberRef.resolve(ParametersContainer(self, args))) {
+            null -> when (memberRef) {
+                is ClassRef -> addDiagnostic(UNRESOLVABLE_REFLECTION_CLASS(location))
+                is FieldRef -> addDiagnostic(UNRESOLVABLE_REFLECTION_FIELD(location))
+                is MethodRef -> addDiagnostic(UNRESOLVABLE_REFLECTION_METHOD(location))
+            }
+            is Constant -> {
+                processConstant(resolved, references)
+                resolved.toFV()
+            }
+            is Reference -> {
+                references.add(resolved)
+                null
+            }
+            else -> assertError("logic failure")
+        }
     }
 
     private fun addDiagnostic(diagnostic: Diagnostic): Nothing? {
         env.addDiagnostic(diagnostic)
-        return null
-    }
-
-    private fun tryResolveClass(name: Any?): Any? {
-        if (name !is String) return addDiagnostic(UNRESOLVABLE_REFLECTION_CLASS(location))
-        val internalName = name.replace('.', '/')
-        references.add(ClassReference(internalName).withLocation(location))
-        return ConstantClass("L$internalName;")
-    }
-
-    private fun processExtraReference(method: MethodReference, self: Any?, args: List<Any>): Any? {
-        when (method.owner.name) {
-            "java/lang/ClassLoader" -> when (method.name) {
-                "loadClass" -> {
-                    when (method.descriptor) {
-                        "(L${"java/lang/String"};)L${"java/lang/Class"};" ->
-                            return tryResolveClass(args[0])
-                        "(L${"java/lang/String"};B)L${"java/lang/Class"};" ->
-                            return tryResolveClass(args[0])
-                    }
-                }
-            }
-            "java/lang/Class" -> when (method.name) {
-                "forName" -> when (method.descriptor) {
-                    "(L${"java/lang/Module"};L${"java/lang/String"};)L${"java/lang/Class"};" ->
-                        return tryResolveClass(args[1])
-                    "(L${"java/lang/String"};)L${"java/lang/Class"};" ->
-                        return tryResolveClass(args[0])
-                    "(L${"java/lang/String"};BL${"java/lang/ClassLoader"};)L${"java/lang/Class"};" ->
-                        return tryResolveClass(args[0])
-                }
-                "getField" -> when (method.descriptor) {
-                    "(L${"java/lang/String"};)L${"java/lang/reflect/Field"};" -> {
-                        val selfClass = (self as? ConstantClass)?.descriptor?.let(::newReferenceDesc)
-                        val name = args[0] as? String
-                        if (selfClass == null || name == null)
-                            return addDiagnostic(UNRESOLVABLE_REFLECTION_FIELD(location))
-                        references.add(PartialFieldReference(selfClass, name))
-                    }
-                }
-                "getMethod" -> when (method.descriptor) {
-                    "(L${"java/lang/String"};[L${"java/lang/Class"};)L${"java/lang/reflect/Method"};" -> {
-                        val selfClass = (self as? ConstantClass)?.descriptor?.let(::newReferenceDesc)
-                        val name = args[0] as? String
-                        val argTypes = args[0] as? MutableList<*>
-                        if (selfClass == null || name == null || argTypes == null)
-                            return addDiagnostic(UNRESOLVABLE_REFLECTION_METHOD(location))
-                        if (argTypes.any { it !is ConstantClass })
-                            return addDiagnostic(UNRESOLVABLE_REFLECTION_METHOD(location))
-                        references.add(PartialMethodReference(selfClass, name,
-                            descriptor = argTypes.joinToString("", "(", ")") {
-                                (it as ConstantClass).descriptor
-                            }))
-                    }
-                }
-            }
-        }
         return null
     }
 

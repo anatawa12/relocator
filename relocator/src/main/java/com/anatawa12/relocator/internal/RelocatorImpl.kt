@@ -140,6 +140,16 @@ private class ReferencesCollectContextImpl(
                             reference.name, reference.descriptor, reference.location ?: Location.None))
                     methods.forEach { start { collectReferencesOf(it) } }
                 }
+                is TypelessMethodReference -> {
+                    if (reference.owner.name[0] == '[' && isArrayMethod(reference))
+                        return@start
+
+                    val methods = classpath.findMethods(reference)
+                    if (methods.isEmpty())
+                        return@start addDiagnostic(UNRESOLVABLE_METHOD(reference.owner.name,
+                            reference.name, null, reference.location ?: Location.None))
+                    methods.forEach { start { collectReferencesOf(it) } }
+                }
             }
         }
     }
@@ -150,6 +160,11 @@ private class ReferencesCollectContextImpl(
     }
 
     private suspend fun isArrayMethod(reference: PartialMethodReference): Boolean {
+        val objectClass = classpath.findClass("java/lang/Object") ?: return false
+        return objectClass.findMethods(reference).isNotEmpty()
+    }
+
+    private suspend fun isArrayMethod(reference: TypelessMethodReference): Boolean {
         val objectClass = classpath.findClass("java/lang/Object") ?: return false
         return objectClass.findMethods(reference).isNotEmpty()
     }

@@ -57,6 +57,10 @@ class CombinedClassPath(
     suspend fun findMethods(ref: PartialMethodReference): List<ClassMethod> =
         deepClasses(ref.owner).flatMapMerge { it.findMethods(ref).asFlow() }.toList()
 
+    @Suppress("EXPERIMENTAL_API_USAGE")
+    suspend fun findMethods(ref: TypelessMethodReference): List<ClassMethod> =
+        deepClasses(ref.owner).flatMapMerge { it.findMethods(ref).asFlow() }.toList()
+
     suspend fun findField(ref: FieldReference): ClassField? =
         deepClasses(ref.owner).mapNotNull { it.findField(ref) }.firstOrNull()
 
