@@ -4,9 +4,9 @@ import com.anatawa12.relocator.classes.*
 import com.anatawa12.relocator.reference.FieldReference
 import com.anatawa12.relocator.reference.MethodReference
 import com.anatawa12.relocator.reflect.ReflectionMappingContainer
-import com.anatawa12.relocator.reflect.StringRef as PublicStringRef
 import com.anatawa12.relocator.reflect.ClassRef as PublicClassRef
 import com.anatawa12.relocator.reflect.MethodTypeRef as PublicMethodTypeRef
+import com.anatawa12.relocator.reflect.StringRef as PublicStringRef
 
 internal lateinit var ownerAccessorCodeLabel: OwnerAccessor<CodeLabel, Insn>
 internal val CodeLabel.target get() = ownerAccessorCodeLabel.get(this)
@@ -133,20 +133,27 @@ private val _init = run<Unit> {
     PublicClassRef.thisParam
     MethodTypeRef.thisParam
     ReflectionMappingContainer()
+}
 
-    ownerAccessorCodeLabel
-    ownerAccessorLocalVariable
-    ownerAccessorClassCode
-    ownerAccessorClassMethod
-    ownerAccessorClassField
-    ownerAccessorClassRecordField
-    unknownAttrsSetterClassFile
-    unknownAttrsSetterClassMethod
-    unknownAttrsSetterClassField
-    unknownAttrsSetterClassRecordField
-    publicToInternalStringRef
-    publicToInternalClassRef
-    publicToInternalMethodTypeRef
-    reflectionMappingMethods
-    reflectionMappingFields
+internal object InternalAccessorChecker {
+    init {
+        ownerAccessorCodeLabel
+        ownerAccessorLocalVariable
+        ownerAccessorClassCode
+        ownerAccessorClassMethod
+        ownerAccessorClassField
+        ownerAccessorClassRecordField
+        unknownAttrsSetterClassFile
+        unknownAttrsSetterClassMethod
+        unknownAttrsSetterClassField
+        unknownAttrsSetterClassRecordField
+        publicToInternalStringRef
+        publicToInternalClassRef
+        publicToInternalMethodTypeRef
+        reflectionMappingMethods
+        reflectionMappingFields
+    }
+
+    @JvmStatic
+    fun check() {}
 }

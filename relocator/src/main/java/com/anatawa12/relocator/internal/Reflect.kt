@@ -11,15 +11,15 @@ class ParameterDescriptors(
     val parameters: List<String>,
 ) {
     constructor(self: MethodReference) : this(
-        self.name,
+        "L${self.owner.name};",
         Type.getType(self.descriptor).argumentTypes.map { it.descriptor },
     )
 
-    constructor(self: FieldReference) : this(self.name, emptyList())
+    constructor(self: FieldReference) : this("L${self.owner.name};", emptyList())
 
     fun require(index: Int, type: String) {
         val actual = if (index == -1) self else parameters.getOrNull(index)
-        require(actual != type) {
+        require(actual == type) {
             val name = if (index == -1) "receiver" else "$index-th parameter"
             "the $name type mismatch with Ref: expected '$type' but was '$actual'"
         }
@@ -366,45 +366,5 @@ object Reflects {
         "L${"java/lang/reflect/AnnotatedElement"};",
         "L${"java/lang/reflect/GenericDeclaration"};",
         "L${"java/lang/reflect/Member"};",
-    )
-
-    val defaultMethodMap: MutableMap<MethodReference, MemberRef> = mutableMapOf(
-        MethodReference("java/lang/ClassLoader", "loadClass", "(L${"java/lang/String"};)L${"java/lang/Class"};") to
-                ClassRef.Named(StringRef.Param(0)),
-        MethodReference("java/lang/ClassLoader", "loadClass", "(L${"java/lang/String"};B)L${"java/lang/Class"};") to
-                ClassRef.Named(StringRef.Param(0)),
-        MethodReference("java/lang/Class",
-            "forName",
-            "(L${"java/lang/Module"};L${"java/lang/String"};)L${"java/lang/Class"};") to
-                ClassRef.Named(StringRef.Param(0)),
-        MethodReference("java/lang/Class", "forName", "(L${"java/lang/String"};)L${"java/lang/Class"};") to
-                ClassRef.Named(StringRef.Param(0)),
-        MethodReference("java/lang/Class",
-            "forName",
-            "(L${"java/lang/String"};BL${"java/lang/ClassLoader"};)L${"java/lang/Class"};") to
-                ClassRef.Named(StringRef.Param(0)),
-        MethodReference("java/lang/Class", "getField", "(L${"java/lang/String"};)L${"java/lang/reflect/Field"};") to
-                FieldRef(ClassRef.thisParam, StringRef.Param(0), null),
-        MethodReference("java/lang/Class",
-            "getMethod",
-            "(L${"java/lang/String"};[L${"java/lang/Class"};)L${"java/lang/reflect/Method"};") to
-                MethodRef(ClassRef.thisParam, StringRef.Param(0), MethodTypeRef.ParameterTypes(1)),
-        MethodReference("java/lang/Class",
-            "getConstructor",
-            "([L${"java/lang/Class"};)L${"java/lang/reflect/Constructor"};") to
-                MethodRef(ClassRef.thisParam, StringRef.Constant("<init>"), MethodTypeRef.ParameterTypes(0)),
-    )
-
-    // TODO
-    val defaultFieldMap: MutableMap<FieldReference, MemberRef> = mutableMapOf(
-        FieldReference("java/lang/Void", "TYPE", "L${"java/lang/Class"};") to ClassRef.VOID,
-        FieldReference("java/lang/Integer", "TYPE", "L${"java/lang/Class"};") to ClassRef.INT,
-        FieldReference("java/lang/Long", "TYPE", "L${"java/lang/Class"};") to ClassRef.LONG,
-        FieldReference("java/lang/Float", "TYPE", "L${"java/lang/Class"};") to ClassRef.FLOAT,
-        FieldReference("java/lang/Double", "TYPE", "L${"java/lang/Class"};") to ClassRef.DOUBLE,
-        FieldReference("java/lang/Byte", "TYPE", "L${"java/lang/Class"};") to ClassRef.BYTE,
-        FieldReference("java/lang/Character", "TYPE", "L${"java/lang/Class"};") to ClassRef.CHAR,
-        FieldReference("java/lang/Short", "TYPE", "L${"java/lang/Class"};") to ClassRef.SHORT,
-        FieldReference("java/lang/Boolean", "TYPE", "L${"java/lang/Class"};") to ClassRef.BOOLEAN,
     )
 }
