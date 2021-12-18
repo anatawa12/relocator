@@ -46,8 +46,7 @@ internal sealed class StringRef {
             desc.require(index, "L${"java/lang/String"};")
         }
 
-        override fun resolve(params: ParametersContainer): String? =
-            (params.get(index) as? ConstantString)?.value
+        override fun resolve(params: ParametersContainer): String? = params.get(index) as? String
     }
 
     class Constant(val value: String) : StringRef() {

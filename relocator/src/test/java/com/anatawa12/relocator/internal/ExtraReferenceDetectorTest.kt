@@ -29,11 +29,11 @@ internal class ExtraReferenceDetectorTest {
 
     @Test
     fun detectExtraMethodReference() {
-        detectExtraReference(stringFormat) `should contain` MethodReference(
+        detectExtraReference(stringFormat) `should contain` PartialMethodReference(
             "java/lang/String",
             "format",
             "(Ljava/util/Locale;Ljava/lang/String;[Ljava/lang/Object;)")
-        detectExtraReference(stringIndexOf) `should contain` MethodReference(
+        detectExtraReference(stringIndexOf) `should contain` PartialMethodReference(
             "java/lang/String",
             "indexOf",
             "(I)")
