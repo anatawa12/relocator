@@ -14,7 +14,7 @@ internal class ExtraReferenceDetectorTest {
     private fun detectExtraReference(list: List<Insn>): Set<Reference> {
         val references = mutableSetOf<Reference>()
         ExtraReferenceDetector(true, "()V", 5,
-            env, location, list, references, emptySet())
+            emptyMap(), env, location, list, references, emptySet())
             .collectExtraReferences()
         return references
     }
@@ -22,7 +22,7 @@ internal class ExtraReferenceDetectorTest {
     private fun checkOnStackValue(list: List<Insn>): Any {
         val references = mutableSetOf<Reference>()
         val detector = ExtraReferenceDetector(true, "()V", 5,
-            env, location, list, references, emptySet())
+            emptyMap(), env, location, list, references, emptySet())
         detector.collectExtraReferences()
         return detector.pop()
     }

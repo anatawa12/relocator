@@ -249,6 +249,7 @@ internal fun collectReferencesOfInsnList(
         list.owner.owner.access and ACC_STATIC != 0,
         list.owner.owner.descriptor,
         list.owner.maxLocals,
+        list.owner.tryCatchBlocks.groupBy { it.start },
         env, location, list, references, backJumpLabels,
     ).collectExtraReferences()
 }
@@ -259,6 +260,7 @@ internal class ExtraReferenceDetector(
     isStatic: Boolean,
     methodDescriptor: String,
     maxLocals: Int,
+    val tryCatchBlocks: Map<CodeLabel, List<TryCatchBlock>>,
     val env: ComputeReferenceEnvironment,
     val location: Location,
     val list: List<Insn>,
@@ -276,6 +278,11 @@ internal class ExtraReferenceDetector(
                 else mergeFrame(frame!!, newFrame)
             }
             if (frame == null) continue
+            for (codeLabel in insn.labelsToMe) {
+                for (tryCatchBlock in tryCatchBlocks[codeLabel].orEmpty()) {
+                    setFrame(framesByLabel, tryCatchBlock.handler)
+                }
+            }
             insn.frame?.let { verifyFrame(frame!!, it) }
             if (insn.labelsToMe.any { it in backJumpLabels })
                 frame!!.underBackJump = true
