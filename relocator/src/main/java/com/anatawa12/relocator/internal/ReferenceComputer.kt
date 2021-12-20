@@ -88,7 +88,7 @@ internal suspend fun computeReferencesOfMethod(
         acceptAnnotations(this, env, main.invisibleParameterAnnotations)
         main.classCode?.invisibleLocalVariableAnnotations?.let { acceptAnnotations(this, env, it) }
     }
-    main.classCode?.let { computeReferencesOfClassCode(env, it) }
+    main.classCode?.let { addAll(computeReferencesOfClassCode(env, it)) }
 
     // additional: owner class
     newReference(owner.name)?.let(::add)
