@@ -7,12 +7,15 @@ import com.anatawa12.relocator.internal.internal
 import com.anatawa12.relocator.reference.ClassReference
 import com.anatawa12.relocator.reference.FieldReference
 import com.anatawa12.relocator.reference.MethodReference
+import com.google.common.collect.HashMultimap
 import org.objectweb.asm.Type
 
 class ReflectionMappingContainer private constructor(
     private val methods: MutableMap<MethodReference, MemberRef>,
     private val fields: MutableMap<FieldReference, MemberRef>,
 ) {
+    private val refMethods = HashMultimap.create<MethodReference, MemberRef>()
+    private val refFields = HashMultimap.create<FieldReference, MemberRef>()
     constructor() : this(Default.default.methods.toMutableMap(), Default.default.fields.toMutableMap())
 
     fun addClass(reference: MethodReference, classRef: ClassRef) {
@@ -53,6 +56,34 @@ class ReflectionMappingContainer private constructor(
         require (reference.descriptor in Reflects.methodTypes) { "$reference will never method instance" }
         fields[reference] = MethodRef(ownerRef.internal, nameRef.internal, typeRef?.internal)
             .apply { checkUsable(ParameterDescriptors(reference)) }
+    }
+
+    fun addRefClass(reference: MethodReference, classRef: ClassRef) {
+        refMethods.put(reference, classRef.internal.apply { checkUsable(ParameterDescriptors(reference)) })
+    }
+
+    fun addRefField(reference: MethodReference, ownerRef: ClassRef, nameRef: StringRef, typeRef: ClassRef?) {
+        refMethods.put(reference, FieldRef(ownerRef.internal, nameRef.internal, typeRef?.internal)
+            .apply { checkUsable(ParameterDescriptors(reference)) })
+    }
+
+    fun addRefMethod(reference: MethodReference, ownerRef: ClassRef, nameRef: StringRef, typeRef: MethodTypeRef?) {
+        refMethods.put(reference, MethodRef(ownerRef.internal, nameRef.internal, typeRef?.internal)
+            .apply { checkUsable(ParameterDescriptors(reference)) })
+    }
+
+    fun addRefClass(reference: FieldReference, classRef: ClassRef) {
+        refFields.put(reference, classRef.internal.apply { checkUsable(ParameterDescriptors(reference)) })
+    }
+
+    fun addRefField(reference: FieldReference, ownerRef: ClassRef, nameRef: StringRef, typeRef: ClassRef?) {
+        refFields.put(reference, FieldRef(ownerRef.internal, nameRef.internal, typeRef?.internal)
+            .apply { checkUsable(ParameterDescriptors(reference)) })
+    }
+
+    fun addRefMethod(reference: FieldReference, ownerRef: ClassRef, nameRef: StringRef, typeRef: MethodTypeRef?) {
+        refFields.put(reference, MethodRef(ownerRef.internal, nameRef.internal, typeRef?.internal)
+            .apply { checkUsable(ParameterDescriptors(reference)) })
     }
 
     private object Default {
@@ -99,7 +130,9 @@ class ReflectionMappingContainer private constructor(
             }
 
             reflectionMappingMethods = ReflectionMappingContainer::methods
+            reflectionMappingRefMethods = ReflectionMappingContainer::refMethods
             reflectionMappingFields = ReflectionMappingContainer::fields
+            reflectionMappingRefFields = ReflectionMappingContainer::refFields
         }
     }
 }

@@ -584,28 +584,30 @@ internal class ExtraReferenceDetector(
     }
 
     private fun processExtraReference(field: FieldReference, @Suppress("UNUSED_PARAMETER") self: Any?): Any? {
-        val memberRef = env.reflectionMap.fields[field] ?: return null
-        return when (val resolved = memberRef.resolve(ParametersContainer(self, emptyList()))) {
-            null -> when (memberRef) {
-                is ClassRef -> addDiagnostic(UNRESOLVABLE_REFLECTION_CLASS(location))
-                is FieldRef -> addDiagnostic(UNRESOLVABLE_REFLECTION_FIELD(location))
-                is MethodRef -> addDiagnostic(UNRESOLVABLE_REFLECTION_METHOD(location))
-            }
-            is Constant -> {
-                processConstant(resolved, references)
-                resolved.toFV()
-            }
-            is Reference -> {
-                references.add(resolved)
-                null
-            }
-            else -> assertError("logic failure")
-        }
+        return processExtraReference(self, emptyList(),
+            env.reflectionMap.refFields[field], env.reflectionMap.fields[field])
     }
 
     private fun processExtraReference(method: MethodReference, self: Any?, args: List<Any>): Any? {
-        val memberRef = env.reflectionMap.methods[method] ?: return null
-        return when (val resolved = memberRef.resolve(ParametersContainer(self, args))) {
+        return processExtraReference(self, args,
+            env.reflectionMap.refMethods[method], env.reflectionMap.methods[method])
+    }
+
+    private fun processExtraReference(
+        self: Any?,
+        args: List<Any>,
+        memberRefs: Collection<MemberRef>,
+        returningRef: MemberRef?,
+    ): Any? {
+        if (memberRefs.isEmpty() && returningRef == null) return null
+        val params = ParametersContainer(self, args)
+        for (memberRef in memberRefs) processExtraReference(memberRef, params)
+        if (returningRef == null) return null
+        return processExtraReference(returningRef, params)
+    }
+
+    private fun processExtraReference(memberRef: MemberRef, params: ParametersContainer): Any? {
+        return when (val resolved = memberRef.resolve(params)) {
             null -> when (memberRef) {
                 is ClassRef -> addDiagnostic(UNRESOLVABLE_REFLECTION_CLASS(location))
                 is FieldRef -> addDiagnostic(UNRESOLVABLE_REFLECTION_FIELD(location))

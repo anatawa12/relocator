@@ -4,6 +4,7 @@ import com.anatawa12.relocator.classes.*
 import com.anatawa12.relocator.reference.FieldReference
 import com.anatawa12.relocator.reference.MethodReference
 import com.anatawa12.relocator.reflect.ReflectionMappingContainer
+import com.google.common.collect.SetMultimap
 import com.anatawa12.relocator.reflect.ClassRef as PublicClassRef
 import com.anatawa12.relocator.reflect.MethodTypeRef as PublicMethodTypeRef
 import com.anatawa12.relocator.reflect.StringRef as PublicStringRef
@@ -53,8 +54,14 @@ internal val PublicMethodTypeRef.internal get() = publicToInternalMethodTypeRef(
 internal lateinit var reflectionMappingMethods: ReflectionMappingContainer.() -> MutableMap<MethodReference, MemberRef>
 internal val ReflectionMappingContainer.methods get() = reflectionMappingMethods()
 
+internal lateinit var reflectionMappingRefMethods: ReflectionMappingContainer.() -> SetMultimap<MethodReference, MemberRef>
+internal val ReflectionMappingContainer.refMethods get() = reflectionMappingRefMethods()
+
 internal lateinit var reflectionMappingFields: ReflectionMappingContainer.() -> MutableMap<FieldReference, MemberRef>
 internal val ReflectionMappingContainer.fields get() = reflectionMappingFields()
+
+internal lateinit var reflectionMappingRefFields: ReflectionMappingContainer.() -> SetMultimap<FieldReference, MemberRef>
+internal val ReflectionMappingContainer.refFields get() = reflectionMappingRefFields()
 
 @Suppress("ObjectPropertyName", "unused")
 private val _init = run<Unit> {
@@ -152,6 +159,8 @@ internal object InternalAccessorChecker {
         publicToInternalMethodTypeRef
         reflectionMappingMethods
         reflectionMappingFields
+        reflectionMappingRefMethods
+        reflectionMappingRefFields
     }
 
     @JvmStatic
