@@ -2,6 +2,7 @@ package com.anatawa12.relocator
 
 import com.anatawa12.relocator.diagnostic.DiagnosticException
 import com.anatawa12.relocator.diagnostic.DiagnosticHandler
+import com.anatawa12.relocator.diagnostic.SuppressionContainer
 import com.anatawa12.relocator.internal.InternalAccessorChecker
 import com.anatawa12.relocator.internal.RelocatingEnvironment
 import com.anatawa12.relocator.internal.ThrowingDiagnosticHandler
@@ -70,6 +71,9 @@ class Relocator {
     }
 
     val reflectionMap = ReflectionMappingContainer()
+
+    @Suppress("SpellCheckingInspection")
+    val suppressions = SuppressionContainer()
 
     /**
      * @implSpec the map is ordered by length of package

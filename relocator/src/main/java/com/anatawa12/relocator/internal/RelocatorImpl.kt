@@ -20,7 +20,7 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
     lateinit var embeds: EmbeddableClassPath
     lateinit var roots: EmbeddableClassPath
     lateinit var classpath: CombinedClassPath
-    val diagnosticHandler = InternalDiagnosticHandlerWrapper(relocator.diagnosticHandler)
+    val diagnosticHandler = InternalDiagnosticHandlerWrapper(relocator.diagnosticHandler, relocator.suppressions)
     private val collectors = listOf<ReferenceCollector>(
         DefaultCollector,
     )
