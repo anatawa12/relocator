@@ -18,6 +18,13 @@ internal fun <R: Reference> R.withLocation(location: Location?) = apply { if (lo
 class ClassReference(
     name: String,
 ): Reference() {
+    val arrayComponent: ClassReference? by lazy(LazyThreadSafetyMode.NONE) {
+        if (name[0] != '[') return@lazy this
+        if (name.last() != ';') return@lazy null
+        ClassReference(name.substring(name.indexOfFirst { it != '[' } + 1, name.length - 1))
+            .withLocation(location)
+    }
+
     /**
      * The internal form of binary class name.
      */

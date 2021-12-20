@@ -101,9 +101,12 @@ private class ReferencesCollectContextImpl(
             reference.withLocation(location ?: Location.None)
         queue.start {
             when (reference) {
-                is ClassReference -> collectReferencesOf(classpath.findClass(reference)
-                    ?: return@start addDiagnostic(UNRESOLVABLE_CLASS(reference.name,
-                        reference.location ?: Location.None)))
+                is ClassReference -> {
+                    val rootClass = reference.arrayComponent ?: return@start
+                    collectReferencesOf(classpath.findClass(rootClass)
+                        ?: return@start addDiagnostic(UNRESOLVABLE_CLASS(rootClass.name,
+                            rootClass.location ?: Location.None)))
+                }
                 is FieldReference -> {
                     val field = classpath.findField(reference)
                         ?: return@start addDiagnostic(UNRESOLVABLE_FIELD(reference.owner.name,
