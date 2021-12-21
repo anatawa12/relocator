@@ -12,6 +12,8 @@ import com.anatawa12.relocator.reference.*
 import com.anatawa12.relocator.reference.withLocation
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import org.objectweb.asm.Opcodes.ACC_NATIVE
+import org.objectweb.asm.Opcodes.ACC_VARARGS
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
@@ -129,6 +131,8 @@ private class ReferencesCollectContextImpl(
                 is MethodReference -> {
                     if (reference.owner.name[0] == '[' && isArrayMethod(reference))
                         return@start
+                    if (isSignaturePolymorphicMethod(reference))
+                        return@start
                     collectReferencesOf(classpath.findMethod(reference)
                         ?: return@start addDiagnostic(UNRESOLVABLE_METHOD(reference.owner.name,
                             reference.name, reference.descriptor, reference.location ?: Location.None)))
@@ -155,6 +159,22 @@ private class ReferencesCollectContextImpl(
                 }
             }
         }
+    }
+
+    /**
+     * Returns true if the reference is targeting to [Signature Polymorphic Methods].
+     * 
+     * [Signature Polymorphic Methods]: (https://docs.oracle.com/javase/specs/jvms/se16/html/jvms-2.html#jvms-2.9.3)
+     */
+    private suspend fun isSignaturePolymorphicMethod(reference: MethodReference): Boolean {
+        if (reference.owner.name == "java/lang/invoke/MethodHandle"
+            || reference.owner.name == "java/lang/invoke/VarHandle") {
+            val methodHandle = classpath.findClass(reference.owner.name) ?: return false
+            val method = methodHandle
+                .findMethod(reference.name, "([L${"java/lang/Object"};)L${"java/lang/Object"};") ?: return false
+            return method.access.hasFlag(ACC_VARARGS or ACC_NATIVE)
+        }
+        return false
     }
 
     private suspend fun isArrayMethod(reference: MethodReference): Boolean {
