@@ -31,20 +31,21 @@ class AllAPIDoesNotUseExternalClass {
     val anonymousClassPattern = """\$[0-9]""".toRegex()
 
     private fun checkClassFile(classFile: Class<*>) {
-        if (!isApi(classFile.modifiers)) return
-        if (classFile.modifiers.hasFlag(ACC_SYNTHETIC)) return
         if (classFile.enclosingMethod != null) return
         if (classFile.enclosingClass != null) return
-        if (classFile.simpleName.isNullOrEmpty() || classFile.simpleName.contains(anonymousClassPattern)) return
+        checkClassFileInternal(classFile)
+    }
 
+    private fun checkClassFileInternal(classFile: Class<*>) {
+        if (!isApi(classFile.modifiers)) return
+        if (classFile.simpleName.isNullOrEmpty() || classFile.simpleName.contains(anonymousClassPattern)) return
         if (classFile.annotatedSuperclass != null)
             checkAnnotatedType(classFile.annotatedSuperclass, "superclass of ${classFile.name}")
         for (clazz in classFile.annotatedInterfaces)
             checkAnnotatedType(clazz, "a interfaces of ${classFile.name}")
         checkAnnotations(classFile, classFile.name)
-        for (method in classFile.methods) {
+        for (method in classFile.declaredMethods) {
             if (!isApi(method.modifiers)) continue
-            if (method.modifiers.hasFlag(ACC_SYNTHETIC)) continue
 
             if (method.name.endsWith("\$relocator")) continue
             if (method.name in javaKeywords) continue
@@ -54,9 +55,8 @@ class AllAPIDoesNotUseExternalClass {
             checkAnnotatedType(method.annotatedReturnType, "return type of method ${classFile.name}:${method.name}")
         }
 
-        for (constructor in classFile.constructors) {
+        for (constructor in classFile.declaredConstructors) {
             if (!isApi(constructor.modifiers)) continue
-            if (constructor.modifiers.hasFlag(ACC_SYNTHETIC)) continue
 
             checkAnnotations(constructor, "constructor of ${classFile.name}")
             for (parameter in constructor.parameters)
@@ -64,16 +64,19 @@ class AllAPIDoesNotUseExternalClass {
             checkAnnotatedType(constructor.annotatedReturnType, "return type of constructor of ${classFile.name}")
         }
 
-        for (field in classFile.fields) {
+        for (field in classFile.declaredFields) {
             if (!isApi(field.modifiers)) continue
-            if (field.modifiers.hasFlag(ACC_SYNTHETIC)) continue
 
             checkAnnotations(field, "field ${classFile.name}:${field.name}")
             checkAnnotatedType(field.annotatedType, "type of field ${classFile.name}:${field.name}")
         }
+
+        for (declaredClass in classFile.declaredClasses) {
+            checkClassFileInternal(declaredClass)
+        }
     }
 
-    private fun isApi(modifiers: Int) = !modifiers.hasFlag(ACC_PRIVATE)
+    private fun isApi(modifiers: Int) = !modifiers.hasFlag(ACC_PRIVATE) && !modifiers.hasFlag(ACC_SYNTHETIC)
 
     private fun checkAnnotations(classFile: AnnotatedElement, of: String) {
         val location = "annotation type of $of"
