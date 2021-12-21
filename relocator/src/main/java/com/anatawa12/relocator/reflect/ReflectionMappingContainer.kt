@@ -118,6 +118,13 @@ class ReflectionMappingContainer private constructor(
                 addMethod(MethodReference(clazz, "getConstructor", "([L${clazz.name};)L${constructor.name};"),
                     ClassRef.thisParam, StringRef.constant("<init>"), MethodTypeRef.parameterTypes(0))
 
+                addField(MethodReference(clazz, "getDeclaredField", "(L${string.name};)L${field.name};"),
+                    ClassRef.thisParam, StringRef.param(0), null)
+                addMethod(MethodReference(clazz, "getDeclaredMethod", "(L${string.name};[L${clazz.name};)L${method.name};"),
+                    ClassRef.thisParam, StringRef.param(0), MethodTypeRef.parameterTypes(1))
+                addMethod(MethodReference(clazz, "getDeclaredConstructor", "([L${clazz.name};)L${constructor.name};"),
+                    ClassRef.thisParam, StringRef.constant("<init>"), MethodTypeRef.parameterTypes(0))
+
                 addClass(FieldReference("java/lang/Void", "TYPE", "L${"java/lang/Class"};"), ClassRef.VOID)
                 addClass(FieldReference("java/lang/Integer", "TYPE", "L${"java/lang/Class"};"), ClassRef.INT)
                 addClass(FieldReference("java/lang/Long", "TYPE", "L${"java/lang/Class"};"), ClassRef.LONG)
