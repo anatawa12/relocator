@@ -35,7 +35,7 @@ internal class InternalDiagnosticHandlerWrapper(
         SuppressingValue.Any -> true
         is SuppressingValue.IntRange -> a is Int && a in b.min..b.max
         is SuppressingValue.IntValue -> a is Int && a == b.value
-        is SuppressingValue.StringPattern -> a is String && b.pattern.matches(a)
+        is SuppressingValue.StringPattern -> a is String && b.pattern.toRegex().matches(a)
         is SuppressingValue.StringValue -> a is String && b.value == a
     }
 }
