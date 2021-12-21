@@ -46,6 +46,10 @@ class SuppressionContainer {
             withLocation.put(diagnostic.location to diagnostic.name, diagnostic)
         }
     }
+
+    fun add(location: SuppressingLocation?, name: String, vararg values: SuppressingValue<*>) {
+        add(SuppressingDiagnostic(location, name, *values))
+    }
 }
 
 class SuppressingDiagnostic(
