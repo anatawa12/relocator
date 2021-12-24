@@ -2,6 +2,7 @@ package com.anatawa12.relocator.diagnostic
 
 import com.anatawa12.relocator.diagnostic.SuppressingLocation.*
 import com.google.common.collect.HashMultimap
+import org.intellij.lang.annotations.Language
 import java.util.regex.Pattern
 
 // TODO: pattern based location
@@ -66,7 +67,7 @@ sealed class SuppressingValue<in T>() {
     object Any : SuppressingValue<Any>()
     class IntRange private constructor(val min: Int, val max: Int) : SuppressingValue<Int>()
     class StringPattern(val pattern: Pattern) : SuppressingValue<Int>() {
-        constructor(pattern: String) : this(Pattern.compile(pattern))
+        constructor(@Language("regex") pattern: String) : this(Pattern.compile(pattern))
     }
     class IntValue(val value: Int) : SuppressingValue<Int>()
     class StringValue(val value: String) : SuppressingValue<Int>()

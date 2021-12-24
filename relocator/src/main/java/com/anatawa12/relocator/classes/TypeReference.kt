@@ -8,7 +8,11 @@ import com.anatawa12.relocator.internal.checkBitsOrM1
 import org.objectweb.asm.TypeReference as ATR
 
 // TODO make constructor private
-class TypeReference @Deprecated("This is unsafe") constructor(internal val value: Int)
+class TypeReference @Deprecated("This is unsafe") constructor(internal val value: Int) {
+    override fun toString(): String {
+        return value.toString(16).padStart(8, '0')
+    }
+}
 
 fun newField() = newTypeReference(ATR.FIELD)
 fun newMethodReturn() = newTypeReference(ATR.METHOD_RETURN)

@@ -122,7 +122,10 @@ class ClassInnerClass(
     var name: ClassReference,
     var outerName: ClassReference?,
     var innerName: String?,
-)
+) {
+    override fun toString(): String =
+        "inner class ${modifiers(access, 0)} $name outer: $outerName inner: $innerName"
+}
 
 class ClassMethod constructor(
     val access: Int,

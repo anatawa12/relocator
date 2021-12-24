@@ -2,7 +2,9 @@ package com.anatawa12.relocator.classes
 
 import com.anatawa12.relocator.reference.ClassReference
 
-sealed class AnnotationValue()
+sealed class AnnotationValue() {
+    abstract override fun toString(): String
+}
 
 class KeyValuePair(val key: String, val value: AnnotationValue)
 
@@ -17,20 +19,44 @@ class ClassAnnotation : AnnotationValue {
 
     constructor(annotationClass: ClassReference, vararg values: KeyValuePair)
             : this(annotationClass, values.asList())
+
+    override fun toString(): String = "@${annotationClass.name}(${values.joinToString { "${it.key}=${it.value}" }})"
 }
 
-class AnnotationByte(val value: Byte) : AnnotationValue()
-class AnnotationBoolean(val value: Boolean) : AnnotationValue()
-class AnnotationChar(val value: Char) : AnnotationValue()
-class AnnotationShort(val value: Short) : AnnotationValue()
-class AnnotationInt(val value: Int) : AnnotationValue()
-class AnnotationLong(val value: Long) : AnnotationValue()
-class AnnotationFloat(val value: Float) : AnnotationValue()
-class AnnotationDouble(val value: Double) : AnnotationValue()
-class AnnotationString(val value: String) : AnnotationValue()
-class AnnotationEnum(val owner: ClassReference, val value: String) : AnnotationValue()
-class AnnotationClass(val descriptor: String) : AnnotationValue()
-class AnnotationArray(values: List<AnnotationValue>) : AnnotationValue(), List<AnnotationValue> by values {
+class AnnotationByte(val value: Byte) : AnnotationValue() {
+    override fun toString(): String = "byte $value"
+}
+class AnnotationBoolean(val value: Boolean) : AnnotationValue() {
+    override fun toString(): String = "boolean $value"
+}
+class AnnotationChar(val value: Char) : AnnotationValue() {
+    override fun toString(): String = "char $value"
+}
+class AnnotationShort(val value: Short) : AnnotationValue() {
+    override fun toString(): String = "short $value"
+}
+class AnnotationInt(val value: Int) : AnnotationValue() {
+    override fun toString(): String = "int $value"
+}
+class AnnotationLong(val value: Long) : AnnotationValue() {
+    override fun toString(): String = "long $value"
+}
+class AnnotationFloat(val value: Float) : AnnotationValue() {
+    override fun toString(): String = "float $value"
+}
+class AnnotationDouble(val value: Double) : AnnotationValue() {
+    override fun toString(): String = "double $value"
+}
+class AnnotationString(val value: String) : AnnotationValue() {
+    override fun toString(): String = "string $value"
+}
+class AnnotationEnum(val owner: ClassReference, val value: String) : AnnotationValue() {
+    override fun toString(): String = "enum $owner.$value"
+}
+class AnnotationClass(val descriptor: String) : AnnotationValue() {
+    override fun toString(): String = "class $descriptor"
+}
+class AnnotationArray(val values: List<AnnotationValue>) : AnnotationValue(), List<AnnotationValue> by values {
     constructor(vararg values: AnnotationValue): this(values.toList())
     constructor(values: ByteArray): this(values.map(::AnnotationByte))
     constructor(values: BooleanArray): this(values.map(::AnnotationBoolean))
@@ -40,4 +66,6 @@ class AnnotationArray(values: List<AnnotationValue>) : AnnotationValue(), List<A
     constructor(values: LongArray): this(values.map(::AnnotationLong))
     constructor(values: FloatArray): this(values.map(::AnnotationFloat))
     constructor(values: DoubleArray): this(values.map(::AnnotationDouble))
+
+    override fun toString(): String = values.joinToString()
 }

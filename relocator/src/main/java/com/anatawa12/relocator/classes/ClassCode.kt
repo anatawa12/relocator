@@ -281,6 +281,9 @@ class CodeLabel() {
         ownerAccessorCodeLabel = Accessor
     }
 
+    override fun toString(): String =
+        "CodeLabel@" + System.identityHashCode(this).toString(16).padStart(8, '0')
+
     private object Accessor : OwnerAccessor<CodeLabel, Insn>() {
         override fun trySet(element: CodeLabel, target: Insn): Boolean =
             element.target.compareAndSet(null, target)

@@ -9,7 +9,10 @@ class ClassTypeAnnotation(
     val type: TypeReference,
     val typePath: TypePath?,
     val annotation: ClassAnnotation,
-)
+) {
+    override fun toString(): String = 
+        if (typePath != null) "$type $typePath $annotation" else "$type $annotation"
+}
 
 data class AnnotationLocalVariable(val begin: CodeLabel, val end: CodeLabel, val index: Int)
 
