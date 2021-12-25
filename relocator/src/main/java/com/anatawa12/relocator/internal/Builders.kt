@@ -28,15 +28,15 @@ internal object Builders {
             interfaces: Array<out String>?
         ) {
             this.location = Location.Class(name)
-            builder = ClassFileBuilder(version, access, name)
-            builder.withSignature(signature)
-            builder.withSuperName(superName?.let(::ClassReference)?.withLocation(location))
+            builder = ClassFile.Builder(version, access, name)
+            builder.signature(signature)
+            builder.superName(superName?.let(::ClassReference)?.withLocation(location))
             interfaces?.forEach { builder.addInterface(ClassReference(it).withLocation(location)) }
         }
 
         override fun visitSource(source: String?, debug: String?) {
-            builder.withSourceFile(source)
-            builder.withSourceDebug(debug)
+            builder.sourceFile(source)
+            builder.sourceDebug(debug)
         }
 
         override fun visitModule(name: String?, access: Int, version: String?): ModuleVisitor {
@@ -45,14 +45,14 @@ internal object Builders {
         }
 
         override fun visitNestHost(nestHost: String) {
-            builder.withNestHostClass(ClassReference(nestHost).withLocation(location))
+            builder.nestHostClass(ClassReference(nestHost).withLocation(location))
         }
 
         override fun visitOuterClass(owner: String, name: String?, descriptor: String?) {
-            builder.withOuterClass(ClassReference(owner).withLocation(location))
+            builder.outerClass(ClassReference(owner).withLocation(location))
             if (name != null && descriptor != null) {
-                builder.withOuterMethod(name)
-                builder.withOuterMethodDesc(descriptor)
+                builder.outerMethod(name)
+                builder.outerMethodDesc(descriptor)
             }
         }
 
@@ -139,8 +139,8 @@ internal object Builders {
         private val insnBuilder: Insns.InsnBuilder = Insns.InsnBuilder(location),
         private val onEnd: (ClassMethod) -> Unit
     ) : MethodVisitor(Opcodes.ASM9, insnBuilder) {
-        private val builder = ClassMethodBuilder(access, name, descriptor)
-            .withSignature(signature)
+        private val builder = ClassMethod.Builder(access, name, descriptor)
+            .signature(signature)
             .addExceptions(exceptions)
 
         private var visibleParameterAnnotations: Array<MutableList<ClassAnnotation>?>
@@ -158,7 +158,7 @@ internal object Builders {
         }
 
         override fun visitAnnotationDefault(): AnnotationVisitor = AnnotationBuilder(location, { _, v -> v }) {
-            builder.withAnnotationDefault(it.single())
+            builder.annotationDefault(it.single())
         }
 
         override fun visitAnnotation(descriptor: String, visible: Boolean): AnnotationVisitor =
@@ -202,9 +202,9 @@ internal object Builders {
 
         override fun visitEnd() {
             onEnd(builder
-                .withClassCode(insnBuilder.classCode)
-                .withVisibleParameterAnnotations(visibleParameterAnnotations)
-                .withInvisibleParameterAnnotations(invisibleParameterAnnotations)
+                .classCode(insnBuilder.classCode)
+                .visibleParameterAnnotations(visibleParameterAnnotations.copy())
+                .invisibleParameterAnnotations(invisibleParameterAnnotations.copy())
                 .build()
                 .withUnknownAttrs(attrNames))
         }
@@ -221,9 +221,9 @@ internal object Builders {
     ) : FieldVisitor(Opcodes.ASM9) {
         val location = clazz?.let { Location.Field(clazz.name, name, descriptor) }
 
-        private val builder = ClassFieldBuilder(access, name, descriptor)
-            .withSignature(signature)
-            .withValue(value?.let { Insns.newConstant(it, location) })
+        private val builder = ClassField.Builder(access, name, descriptor)
+            .signature(signature)
+            .value(value?.let { Insns.newConstant(it, location) })
 
         private val unknownAttributes = mutableListOf<String>()
 
@@ -257,8 +257,8 @@ internal object Builders {
     ) : RecordComponentVisitor(Opcodes.ASM9) {
         val location = clazz?.let { Location.RecordField(clazz.name, name, descriptor) }
 
-        private val builder = ClassRecordFieldBuilder(name, descriptor)
-            .withSignature(signature)
+        private val builder = ClassRecordField.Builder(name, descriptor)
+            .signature(signature)
 
         private val unknownAttributes = mutableListOf<String>()
 

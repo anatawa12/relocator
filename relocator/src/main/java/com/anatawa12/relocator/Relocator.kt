@@ -3,7 +3,6 @@ package com.anatawa12.relocator
 import com.anatawa12.relocator.diagnostic.DiagnosticException
 import com.anatawa12.relocator.diagnostic.DiagnosticHandler
 import com.anatawa12.relocator.diagnostic.SuppressionContainer
-import com.anatawa12.relocator.internal.InternalAccessorChecker
 import com.anatawa12.relocator.internal.RelocatingEnvironment
 import com.anatawa12.relocator.internal.ThrowingDiagnosticHandler
 import com.anatawa12.relocator.reflect.ReflectionMappingContainer
@@ -17,9 +16,6 @@ import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.startCoroutine
 
 class Relocator {
-    init {
-        InternalAccessorChecker.check()
-    }
 
     private val _referPath: MutableList<File> = ArrayList()
     /**

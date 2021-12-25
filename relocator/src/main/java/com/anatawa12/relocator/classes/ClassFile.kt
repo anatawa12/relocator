@@ -19,7 +19,7 @@ import java.lang.Exception
 // TODO: module support
 
 @BuildBuilder
-class ClassFile constructor(
+class ClassFile private constructor(
     @StaticBuilderArg val version: Int,
     @StaticBuilderArg val access: Int,
     @StaticBuilderArg val name: String,
@@ -84,6 +84,55 @@ class ClassFile constructor(
         }
     }
 
+    // TODO: make ClassFileBuilder internal
+    class Builder(version: Int, access: Int, name: String) : ClassFileBuilder(version, access, name) {
+        override fun buildInternal(
+            version: Int,
+            access: Int,
+            name: String,
+            signature: String?,
+            superName: ClassReference?,
+            interfaces: List<ClassReference>,
+            sourceFile: String?,
+            sourceDebug: String?,
+            outerClass: ClassReference?,
+            outerMethod: String?,
+            outerMethodDesc: String?,
+            visibleAnnotations: List<ClassAnnotation>,
+            invisibleAnnotations: List<ClassAnnotation>,
+            visibleTypeAnnotations: List<ClassTypeAnnotation>,
+            invisibleTypeAnnotations: List<ClassTypeAnnotation>,
+            innerClasses: List<ClassInnerClass>,
+            nestHostClass: ClassReference?,
+            nestMembers: List<ClassReference>,
+            permittedSubclasses: List<ClassReference>,
+            methods: List<ClassMethod>,
+            fields: List<ClassField>,
+            recordFields: List<ClassRecordField>
+        ): ClassFile = ClassFile(version,
+            access,
+            name,
+            signature,
+            superName,
+            interfaces,
+            sourceFile,
+            sourceDebug,
+            outerClass,
+            outerMethod,
+            outerMethodDesc,
+            visibleAnnotations,
+            invisibleAnnotations,
+            visibleTypeAnnotations,
+            invisibleTypeAnnotations,
+            innerClasses,
+            nestHostClass,
+            nestMembers,
+            permittedSubclasses,
+            methods,
+            fields,
+            recordFields)
+    }
+
     companion object Reader {
         fun read(bytes: ByteArray, @Suppress("UNUSED_PARAMETER") loader: ClassPath, noCode: Boolean = false): ClassFile {
             val reader = ClassReader(bytes)
@@ -130,7 +179,7 @@ class ClassInnerClass(
 }
 
 @BuildBuilder
-class ClassMethod constructor(
+class ClassMethod private constructor(
     @StaticBuilderArg val access: Int,
     @StaticBuilderArg val name: String,
     @StaticBuilderArg val descriptor: String,
@@ -167,6 +216,38 @@ class ClassMethod constructor(
             env.addDiagnostic(UNSUPPORTED_ATTRIBUTE(attrName, Location.Method(this)))
     }
 
+    class Builder(access: Int, name: String, descriptor: String) : ClassMethodBuilder(access, name, descriptor) {
+        override fun buildInternal(
+            access: Int,
+            name: String,
+            descriptor: String,
+            signature: String?,
+            exceptions: List<ClassReference>,
+            parameters: List<ClassParameter>,
+            visibleAnnotations: List<ClassAnnotation>,
+            invisibleAnnotations: List<ClassAnnotation>,
+            visibleTypeAnnotations: List<ClassTypeAnnotation>,
+            invisibleTypeAnnotations: List<ClassTypeAnnotation>,
+            annotationDefault: AnnotationValue?,
+            visibleParameterAnnotations: Array<List<ClassAnnotation>?>,
+            invisibleParameterAnnotations: Array<List<ClassAnnotation>?>,
+            classCode: ClassCode?,
+        ): ClassMethod = ClassMethod(access,
+            name,
+            descriptor,
+            signature,
+            exceptions,
+            parameters,
+            visibleAnnotations,
+            invisibleAnnotations,
+            visibleTypeAnnotations,
+            invisibleTypeAnnotations,
+            annotationDefault,
+            visibleParameterAnnotations,
+            invisibleParameterAnnotations,
+            classCode)
+    }
+
     private object Accessor : OwnerAccessor<ClassMethod, ClassFile>() {
         override fun trySet(element: ClassMethod, target: ClassFile): Boolean =
             element.owner.compareAndSet(null, target)
@@ -183,7 +264,7 @@ class ClassMethod constructor(
 }
 
 @BuildBuilder
-class ClassField constructor(
+class ClassField private constructor(
     @StaticBuilderArg val access: Int,
     @StaticBuilderArg val name: String,
     @StaticBuilderArg val descriptor: String,
@@ -210,6 +291,28 @@ class ClassField constructor(
         references = computeReferencesOfField(env, this)
         for (attrName in attrNames)
             env.addDiagnostic(UNSUPPORTED_ATTRIBUTE(attrName, Location.Field(this)))
+    }
+
+    class Builder(access: Int, name: String, descriptor: String) : ClassFieldBuilder(access, name, descriptor) {
+        override fun buildInternal(
+            access: Int,
+            name: String,
+            descriptor: String,
+            signature: String?,
+            value: Constant?,
+            visibleAnnotations: List<ClassAnnotation>,
+            invisibleAnnotations: List<ClassAnnotation>,
+            visibleTypeAnnotations: List<ClassTypeAnnotation>,
+            invisibleTypeAnnotations: List<ClassTypeAnnotation>,
+        ): ClassField = ClassField(access,
+            name,
+            descriptor,
+            signature,
+            value,
+            visibleAnnotations,
+            invisibleAnnotations,
+            visibleTypeAnnotations,
+            invisibleTypeAnnotations)
     }
 
     private object Accessor : OwnerAccessor<ClassField, ClassFile>() {
@@ -253,6 +356,24 @@ class ClassRecordField(
         references = computeReferencesOfRecordField(env, this)
         for (attrName in attrNames)
             env.addDiagnostic(UNSUPPORTED_ATTRIBUTE(attrName, Location.RecordField(this)))
+    }
+
+    class Builder(name: String, descriptor: String) : ClassRecordFieldBuilder(name, descriptor) {
+        override fun buildInternal(
+            name: String,
+            descriptor: String,
+            signature: String?,
+            visibleAnnotations: List<ClassAnnotation>,
+            invisibleAnnotations: List<ClassAnnotation>,
+            visibleTypeAnnotations: List<ClassTypeAnnotation>,
+            invisibleTypeAnnotations: List<ClassTypeAnnotation>,
+        ): ClassRecordField = ClassRecordField(name,
+            descriptor,
+            signature,
+            visibleAnnotations,
+            invisibleAnnotations,
+            visibleTypeAnnotations,
+            invisibleTypeAnnotations)
     }
 
     private object Accessor : OwnerAccessor<ClassRecordField, ClassFile>() {

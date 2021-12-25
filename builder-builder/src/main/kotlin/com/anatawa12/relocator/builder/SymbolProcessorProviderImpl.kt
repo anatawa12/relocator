@@ -1,10 +1,10 @@
 package com.anatawa12.relocator.builder
 
 import com.google.auto.service.AutoService
+import com.google.devtools.ksp.getAnnotationsByType
+import com.google.devtools.ksp.isAnnotationPresent
 import com.google.devtools.ksp.processing.*
-import com.google.devtools.ksp.symbol.KSAnnotated
-import com.google.devtools.ksp.symbol.KSClassDeclaration
-import com.google.devtools.ksp.symbol.KSNode
+import com.google.devtools.ksp.symbol.*
 import com.squareup.kotlinpoet.*
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.ksp.toClassName
@@ -24,7 +24,7 @@ class SymbolProcessorImpl(environment: SymbolProcessorEnvironment) : SymbolProce
     val generator = environment.codeGenerator
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
-        val classes = resolver.getSymbolsWithAnnotation(BuildBuilder)
+        val classes = resolver.getSymbolsWithAnnotation(BuildBuilder::class.qualifiedName!!)
             .filterIsInstance<KSClassDeclaration>()
             .filter { it.containingFile != null }
         for (classDecl in classes) processClass(classDecl)
@@ -50,6 +50,7 @@ class SymbolProcessorImpl(environment: SymbolProcessorEnvironment) : SymbolProce
             addError("the class has type parameters", classDecl)
         if (classDecl.parentDeclaration != null)
             addError("the class is inner class", classDecl)
+        val buildBuilder = classDecl.getAnnotationsByType(BuildBuilder::class).single()
 
         val ctor = classDecl.primaryConstructor
         if (ctor == null) {
@@ -68,67 +69,68 @@ class SymbolProcessorImpl(environment: SymbolProcessorEnvironment) : SymbolProce
 
         if (checkErrors()) return
 
-        val staticArgs = ctor.parameters.filter { it.isAnnotationPresent(StaticBuilderArg) }
-        val dynamicArgs = ctor.parameters.filter { !it.isAnnotationPresent(StaticBuilderArg) }
-        val builderType = ClassName(ctor.packageName.asString(), "${classDecl.simpleName.asString()}Builder")
+        val params = ctor.parameters.map(BuildingParameterSpec::create)
+
+        val builderType = if (buildBuilder.fqname.isNotEmpty()) {
+            ClassName(buildBuilder.fqname.substringBeforeLast('.', ""),
+                buildBuilder.fqname.substringAfterLast('.'))
+        } else {
+            ClassName(ctor.packageName.asString(), "${classDecl.simpleName.asString()}Builder")
+        }
 
         val type = TypeSpec.classBuilder(builderType).also { type ->
-            type.primaryConstructor(FunSpec.constructorBuilder().also { builderCtor ->
-                for (staticArg in staticArgs) {
-                    val name = staticArg.name!!.asString()
-                    val typeName = staticArg.type.toTypeName()
-                    builderCtor.addParameter(name, typeName)
-                    builderCtor.addCode("this.%N = %N\n", name, name)
-                    type.addProperty(name, typeName, KModifier.PRIVATE)
-                }
-            }.build())
+            type.addModifiers(KModifier.ABSTRACT)
+            val builderCtor = FunSpec.constructorBuilder()
 
-            for (dynamicArg in dynamicArgs) {
-                val name = dynamicArg.name!!.asString()
-                val pascalName = name[0].uppercase() + name.substring(1)
-                val typeName = dynamicArg.type.toTypeName()
-                if (typeName.isList()) {
-                    val mutableType = MutableList.parameterizedBy(typeName.typeArguments)
-                    val collectionType = Collection.parameterizedBy(typeName.typeArguments)
-                    val pascalSingleName = when {
-                        pascalName.endsWith("s") -> pascalName.removeSuffix("s")
-                        else -> pascalName
+            for (param in params) {
+                when (param) {
+                    is StaticArgParameterSpec -> {
+                        builderCtor.addParameter(param.name, param.type)
+                        builderCtor.addCode("this.%N = %N\n", param.name, param.name)
+                        type.addProperty(param.name, param.type, KModifier.PRIVATE)
                     }
-                    val element = typeName.typeArguments.single()
-                    type.addFunction(FunSpec.builder("add$pascalSingleName")
-                        .addParameter(name, element)
-                        .returns(builderType)
-                        .addCode("this.%N.add(%N)\n", name, name)
-                        .addCode("return this\n")
-                        .build())
-                    type.addFunction(FunSpec.builder("add$pascalName")
-                        .addParameter(name, collectionType)
-                        .returns(builderType)
-                        .addCode("this.%N.addAll(%N)\n", name, name)
-                        .addCode("return this\n")
-                        .build())
-                    type.addProperty(PropertySpec.builder(name, mutableType, KModifier.PRIVATE)
-                        .initializer("mutableListOf()")
-                        .build())
-                } else {
-                    type.addFunction(FunSpec.builder("with$pascalName")
-                        .returns(builderType)
-                        .addParameter(name, typeName)
-                        .addCode("this.%N = %N\n", name, name)
-                        .addCode("return this\n")
-                        .build())
-                    type.addProperty(PropertySpec.builder(name, typeName.copy(nullable = true), KModifier.PRIVATE)
-                        .mutable(true)
-                        .initializer("null")
-                        .build())
+                    is SimpleBuildingParameterSpec -> {
+                        type.addFunction(FunSpec.builder(param.funName)
+                            .returns(builderType)
+                            .addParameter(param.name, param.type)
+                            .addCode("this.%N = %N\n", param.name, param.name)
+                            .addCode("return this\n")
+                            .build())
+                        type.addProperty(PropertySpec.builder(param.name, param.type.copy(nullable = true))
+                            .addModifiers(KModifier.PRIVATE)
+                            .mutable(true)
+                            .initializer("null")
+                            .build())
+                    }
+                    is ListBuildingParameterSpec -> {
+                        val mutableType = cnMutableList.parameterizedBy(param.elementType)
+                        val collectionType = cnCollection.parameterizedBy(param.elementType)
+                        type.addFunction(FunSpec.builder(param.addName)
+                            .addParameter(param.name, param.elementType)
+                            .returns(builderType)
+                            .addCode("this.%N.add(%N)\n", param.name, param.name)
+                            .addCode("return this\n")
+                            .build())
+                        type.addFunction(FunSpec.builder(param.addAllName)
+                            .addParameter(param.name, collectionType)
+                            .returns(builderType)
+                            .addCode("this.%N.addAll(%N)\n", param.name, param.name)
+                            .addCode("return this\n")
+                            .build())
+                        type.addProperty(PropertySpec.builder(param.name, mutableType, KModifier.PRIVATE)
+                            .initializer("mutableListOf()")
+                            .build())}
                 }
             }
 
+            type.primaryConstructor(builderCtor.build())
+
             type.addFunction(FunSpec.builder("build").also { funSpec ->
-                funSpec.addCode("return %T(\n", classDecl.toClassName())
+                funSpec.returns(classDecl.toClassName())
+                funSpec.addCode("return buildInternal(\n")
                 for (parameter in ctor.parameters) {
                     val paramType = parameter.type.toTypeName()
-                    if (parameter.isAnnotationPresent(StaticBuilderArg)
+                    if (parameter.isAnnotationPresent(StaticBuilderArg::class)
                         || paramType.isList()
                         || paramType.isNullable) {
                         funSpec.addCode("%N, \n", parameter.name!!.asString())
@@ -139,6 +141,14 @@ class SymbolProcessorImpl(environment: SymbolProcessorEnvironment) : SymbolProce
                     }
                 }
                 funSpec.addCode(")\n")
+            }.build())
+
+            type.addFunction(FunSpec.builder("buildInternal").also { funSpec ->
+                funSpec.returns(classDecl.toClassName())
+                funSpec.addModifiers(KModifier.ABSTRACT, KModifier.INTERNAL)
+                for (parameter in ctor.parameters) {
+                    funSpec.addParameter(parameter.name!!.asString(), parameter.type.toTypeName())
+                }
             }.build())
         }.build()
 
@@ -153,23 +163,52 @@ class SymbolProcessorImpl(environment: SymbolProcessorEnvironment) : SymbolProce
                     .writeTo(it)
             }
     }
-
-    companion object {
-        val BuildBuilder = BuildBuilder::class.qualifiedName!!
-        val StaticBuilderArg = StaticBuilderArg::class.qualifiedName!!
-        val List = ClassName("kotlin.collections", "List")
-        val MutableList = ClassName("kotlin.collections", "MutableList")
-        val Collection = ClassName("kotlin.collections", "Collection")
-    }
 }
 
-private fun KSAnnotated.isAnnotationPresent(qname: String) =
-    annotations.any { it.annotationType.resolve().declaration.qualifiedName?.asString() == qname }
+val cnList = ClassName("kotlin.collections", "List")
+val cnMutableList = ClassName("kotlin.collections", "MutableList")
+val cnCollection = ClassName("kotlin.collections", "Collection")
 
 private fun TypeName.isList(): Boolean {
     contract { 
         returns(true) implies (this@isList is ParameterizedTypeName)
     }
-    return this is ParameterizedTypeName &&
-            (this.rawType == SymbolProcessorImpl.List || this.rawType == SymbolProcessorImpl.MutableList)
+    return this is ParameterizedTypeName && (this.rawType == cnList || this.rawType == cnMutableList)
 }
+
+internal sealed class BuildingParameterSpec(val name: String, val type: TypeName) {
+    companion object {
+        fun create(param: KSValueParameter): BuildingParameterSpec {
+            val funName = param.getAnnotationsByType(BuilderFunName::class).firstOrNull()
+
+            val typeName = param.type.toTypeName()
+            val name = funName?.fieldName?.ifEmpty { null } ?: param.name!!.asString()
+
+            if (param.isAnnotationPresent(StaticBuilderArg::class))
+                return StaticArgParameterSpec(name, typeName)
+
+            val listArg = param.getAnnotationsByType(BuilderListArg::class).firstOrNull()
+            if (listArg?.value ?: typeName.isList()) {
+                typeName as ParameterizedTypeName
+                val elementType = typeName.typeArguments.single()
+                val pascalName = name[0].uppercaseChar() + name.substring(1)
+                return ListBuildingParameterSpec(
+                    name,
+                    typeName,
+                    elementType,
+                    funName?.name?.ifEmpty { null } ?: "add${pascalName.removeSuffix("s")}",
+                    funName?.addAll?.ifEmpty { null } ?: "add$pascalName",
+                )
+            } else {
+                return SimpleBuildingParameterSpec(
+                    name,
+                    typeName,
+                    funName?.name?.ifEmpty { null } ?: name,
+                )
+            }
+        }
+    }
+}
+internal class StaticArgParameterSpec(name: String, type: TypeName) : BuildingParameterSpec(name, type)
+internal class SimpleBuildingParameterSpec(name: String, type: TypeName, val funName: String) : BuildingParameterSpec(name, type)
+internal class ListBuildingParameterSpec(name: String, type: TypeName, val elementType: TypeName, val addName: String, val addAllName: String) : BuildingParameterSpec(name, type)

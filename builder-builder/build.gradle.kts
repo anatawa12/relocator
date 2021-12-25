@@ -23,6 +23,7 @@ tasks.compileKotlin {
     kotlinOptions {
         freeCompilerArgs = freeCompilerArgs + "-opt-in=com.squareup.kotlinpoet.ksp.KotlinPoetKspPreview"
         freeCompilerArgs = freeCompilerArgs + "-opt-in=kotlin.contracts.ExperimentalContracts"
+        freeCompilerArgs = freeCompilerArgs + "-opt-in=com.google.devtools.ksp.KspExperimental"
         freeCompilerArgs = freeCompilerArgs + "-opt-in=kotlin.RequiresOptIn"
     }
 }
