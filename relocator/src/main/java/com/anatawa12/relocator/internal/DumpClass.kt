@@ -12,7 +12,8 @@ internal class IndentedBuilder {
         appendln("$prefix: $this")
     }
 
-    fun <T: Any> Iterable<T>.appendList(headingLine: String) {
+    // KT-50517
+    fun <T: Any> Iterable<T>.appendList(@Suppress("UNUSED_PARAMETER") headingLine: String) {
         val iterator = iterator()
         if (iterator.hasNext()) {
             "$headingLine:" {
@@ -34,7 +35,8 @@ internal class IndentedBuilder {
     inline operator fun String.invoke(block: IndentedBuilder.() -> Unit) {
         appendln("$this:")
         indent()
-        block()
+        // KT-21282
+        this@IndentedBuilder.block()
         outdent()
     }
 
