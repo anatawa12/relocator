@@ -2,6 +2,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     kotlin("jvm")
+    id("com.google.devtools.ksp")
 }
 
 apply<kotlinx.atomicfu.plugin.gradle.AtomicFUGradlePlugin>()
@@ -14,6 +15,9 @@ repositories {
 }
 
 dependencies {
+    ksp(project(":builder-builder"))
+    compileOnly(project(":builder-builder-lib"))
+
     implementation(kotlin("stdlib"))
     implementation("org.ow2.asm:asm:9.2")
     implementation("com.google.guava:guava:31.0.1-jre")
@@ -24,6 +28,10 @@ dependencies {
     testImplementation(platform("org.junit:junit-bom:5.8.1"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.amshove.kluent:kluent:1.68")
+}
+
+kotlin.sourceSets.main {
+    kotlin.srcDir("build/generated/ksp/main/kotlin")
 }
 
 tasks.test {

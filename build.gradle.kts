@@ -5,6 +5,8 @@ buildscript {
 
 plugins {
     kotlin("jvm") version "1.6.0" apply false
+    kotlin("kapt") version "1.6.0" apply false
+    id("com.google.devtools.ksp") version "1.6.0-1.0.2" apply false
     // id("com.anatawa12.auto-tostring") version "1.0.2" apply false
 }
 

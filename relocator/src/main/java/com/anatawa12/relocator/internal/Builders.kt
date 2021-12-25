@@ -7,36 +7,13 @@ import com.anatawa12.relocator.diagnostic.Location
 import com.anatawa12.relocator.reference.ClassReference
 import com.anatawa12.relocator.reference.withLocation
 import org.objectweb.asm.*
-import kotlin.properties.Delegates
 import org.objectweb.asm.TypePath as ASMTypePath
 
 internal object Builders {
     class ClassBuilder : ClassVisitor(Opcodes.ASM9) {
         var classFile: ClassFile? = null
         // TODO: module support
-
-        private var version: Int by Delegates.notNull()
-        private var access: Int by Delegates.notNull()
-        private lateinit var name: String
-        private var signature: String? = null
-        private var superName: ClassReference? = null
-        private lateinit var interfaces: List<ClassReference>
-        private var sourceFile: String? = null
-        private var sourceDebug: String? = null
-        private var outerClass: ClassReference? = null
-        private var outerMethod: String? = null
-        private var outerMethodDesc: String? = null
-        private val visibleAnnotations = mutableListOf<ClassAnnotation>()
-        private val invisibleAnnotations = mutableListOf<ClassAnnotation>()
-        private val visibleTypeAnnotations = mutableListOf<ClassTypeAnnotation>()
-        private val invisibleTypeAnnotations = mutableListOf<ClassTypeAnnotation>()
-        private val innerClasses = mutableListOf<ClassInnerClass>()
-        private var nestHostClass: ClassReference? = null
-        private val nestMembers = mutableListOf<ClassReference>()
-        private val permittedSubclasses = mutableListOf<ClassReference>()
-        private val methods = mutableListOf<ClassMethod>()
-        private val fields = mutableListOf<ClassField>()
-        private val recordFields = mutableListOf<ClassRecordField>()
+        private lateinit var builder: ClassFileBuilder
 
         private val unknownAttributes = mutableListOf<String>()
 
@@ -50,18 +27,16 @@ internal object Builders {
             superName: String?,
             interfaces: Array<out String>?
         ) {
-            this.version = version
-            this.access = access
-            this.name = name
-            this.signature = signature
-            this.superName = superName?.let(::ClassReference)
-            this.interfaces = interfaces?.map(::ClassReference).orEmpty()
             this.location = Location.Class(name)
+            builder = ClassFileBuilder(version, access, name)
+            builder.withSignature(signature)
+            builder.withSuperName(superName?.let(::ClassReference)?.withLocation(location))
+            interfaces?.forEach { builder.addInterface(ClassReference(it).withLocation(location)) }
         }
 
         override fun visitSource(source: String?, debug: String?) {
-            sourceFile = source
-            sourceDebug = debug
+            builder.withSourceFile(source)
+            builder.withSourceDebug(debug)
         }
 
         override fun visitModule(name: String?, access: Int, version: String?): ModuleVisitor {
@@ -70,20 +45,20 @@ internal object Builders {
         }
 
         override fun visitNestHost(nestHost: String) {
-            nestHostClass = ClassReference(nestHost)
+            builder.withNestHostClass(ClassReference(nestHost).withLocation(location))
         }
 
         override fun visitOuterClass(owner: String, name: String?, descriptor: String?) {
-            outerClass = ClassReference(owner)
+            builder.withOuterClass(ClassReference(owner).withLocation(location))
             if (name != null && descriptor != null) {
-                outerMethod = name
-                outerMethodDesc = descriptor
+                builder.withOuterMethod(name)
+                builder.withOuterMethodDesc(descriptor)
             }
         }
 
         override fun visitAnnotation(descriptor: String, visible: Boolean): AnnotationVisitor =
             AnnotationBuilder.ofAnnotation(descriptor, location, 
-                if (visible) visibleAnnotations else invisibleAnnotations)
+                if (visible) builder::addVisibleAnnotation else builder::addInvisibleAnnotation)
 
         override fun visitTypeAnnotation(
             typeRef: Int,
@@ -91,29 +66,35 @@ internal object Builders {
             descriptor: String,
             visible: Boolean
         ): AnnotationVisitor = AnnotationBuilder.ofTypeAnnotation(descriptor, typeRef, typePath, location, 
-            if (visible) visibleTypeAnnotations else invisibleTypeAnnotations)
+            if (visible) builder::addVisibleTypeAnnotation else builder::addInvisibleTypeAnnotation)
 
         override fun visitAttribute(attribute: Attribute) {
             unknownAttributes.add(attribute.type)
         }
 
         override fun visitNestMember(nestMember: String) {
-            nestMembers += ClassReference(nestMember)
+            builder.addNestMember(ClassReference(nestMember).withLocation(location))
         }
 
         override fun visitPermittedSubclass(permittedSubclass: String) {
-            permittedSubclasses += ClassReference(permittedSubclass)
+            builder.addPermittedSubclasse(ClassReference(permittedSubclass).withLocation(location))
         }
 
         override fun visitInnerClass(name: String, outerName: String?, innerName: String?, access: Int) {
-            innerClasses += ClassInnerClass(access, ClassReference(name), outerName?.let(::ClassReference), innerName)
+            builder.addInnerClasse(ClassInnerClass(
+                access, 
+                ClassReference(name).withLocation(location), 
+                outerName?.let(::ClassReference)?.withLocation(location), 
+                innerName))
         }
 
         override fun visitRecordComponent(
             name: String,
             descriptor: String,
             signature: String?
-        ): RecordComponentVisitor = RecordFieldBuilder(location, name, descriptor, signature) { recordFields += it }
+        ): RecordComponentVisitor = RecordFieldBuilder(location, name, descriptor, signature) {
+            builder.addRecordField(it)
+        }
 
         override fun visitField(
             access: Int,
@@ -121,7 +102,9 @@ internal object Builders {
             descriptor: String,
             signature: String?,
             value: Any?
-        ): FieldVisitor = FieldBuilder(location, access, name, descriptor, signature, value) { fields += it }
+        ): FieldVisitor = FieldBuilder(location, access, name, descriptor, signature, value) {
+            builder.addField(it)
+        }
 
         override fun visitMethod(
             access: Int,
@@ -137,55 +120,29 @@ internal object Builders {
             signature,
             exceptions?.map(::ClassReference).orEmpty(),
         ) {
-            methods += it
+            builder.addMethod(it)
         }
 
         override fun visitEnd() {
-            classFile = ClassFile(
-                version,
-                access,
-                name,
-                signature,
-                superName,
-                interfaces,
-                sourceFile,
-                sourceDebug,
-                outerClass,
-                outerMethod,
-                outerMethodDesc,
-                visibleAnnotations,
-                invisibleAnnotations,
-                visibleTypeAnnotations,
-                invisibleTypeAnnotations,
-                innerClasses,
-                nestHostClass,
-                nestMembers,
-                permittedSubclasses,
-                methods,
-                fields,
-                recordFields,
-            ).withUnknownAttrs(unknownAttributes)
+            classFile = builder.build().withUnknownAttrs(unknownAttributes)
         }
     }
 
     class MethodBuilder(
         clazz: Location.Class?,
-        private val access: Int,
-        private val name: String,
-        private val descriptor: String,
-        private val signature: String?,
-        private val exceptions: List<ClassReference>,
+        access: Int,
+        name: String,
+        descriptor: String,
+        signature: String?,
+        exceptions: List<ClassReference>,
         private val location: Location.Method? = clazz?.let { Location.Method(clazz.name, name, descriptor) },
         private val insnBuilder: Insns.InsnBuilder = Insns.InsnBuilder(location),
         private val onEnd: (ClassMethod) -> Unit
     ) : MethodVisitor(Opcodes.ASM9, insnBuilder) {
+        private val builder = ClassMethodBuilder(access, name, descriptor)
+            .withSignature(signature)
+            .addExceptions(exceptions)
 
-        private val parameters = mutableListOf<ClassParameter>()
-        private val visibleAnnotations = mutableListOf<ClassAnnotation>()
-        private val invisibleAnnotations = mutableListOf<ClassAnnotation>()
-        private val visibleTypeAnnotations = mutableListOf<ClassTypeAnnotation>()
-        private val invisibleTypeAnnotations = mutableListOf<ClassTypeAnnotation>()
-        private var annotationDefault: AnnotationValue? = null
         private var visibleParameterAnnotations: Array<MutableList<ClassAnnotation>?>
         private var invisibleParameterAnnotations: Array<MutableList<ClassAnnotation>?>
         private val attrNames = mutableListOf<String>()
@@ -197,16 +154,16 @@ internal object Builders {
         }
 
         override fun visitParameter(name: String, access: Int) {
-            parameters.add(ClassParameter(name, access))
+            builder.addParameter(ClassParameter(name, access))
         }
 
         override fun visitAnnotationDefault(): AnnotationVisitor = AnnotationBuilder(location, { _, v -> v }) {
-            annotationDefault = it.single()
+            builder.withAnnotationDefault(it.single())
         }
 
         override fun visitAnnotation(descriptor: String, visible: Boolean): AnnotationVisitor =
             AnnotationBuilder.ofAnnotation(descriptor, location,
-                if (visible) visibleAnnotations else invisibleAnnotations)
+                if (visible) builder::addVisibleAnnotation else builder::addInvisibleAnnotation)
 
         override fun visitTypeAnnotation(
             typeRef: Int,
@@ -214,7 +171,7 @@ internal object Builders {
             descriptor: String,
             visible: Boolean
         ): AnnotationVisitor = AnnotationBuilder.ofTypeAnnotation(descriptor, typeRef, typePath, location,
-            if (visible) visibleTypeAnnotations else invisibleTypeAnnotations)
+            if (visible) builder::addVisibleTypeAnnotation else builder::addInvisibleTypeAnnotation)
 
         override fun visitAnnotableParameterCount(parameterCount: Int, visible: Boolean) {
             if (visible)
@@ -244,47 +201,35 @@ internal object Builders {
         // code will be proceeded by InsnBuilder
 
         override fun visitEnd() {
-            onEnd(ClassMethod(
-                access,
-                name,
-                descriptor,
-                signature,
-                exceptions,
-                parameters,
-                visibleAnnotations,
-                invisibleAnnotations,
-                visibleTypeAnnotations,
-                invisibleTypeAnnotations,
-                annotationDefault,
-                Array(visibleParameterAnnotations.size) { visibleParameterAnnotations[it] },
-                Array(invisibleParameterAnnotations.size) { invisibleParameterAnnotations[it] },
-                insnBuilder.classCode,
-            ).withUnknownAttrs(attrNames))
+            onEnd(builder
+                .withClassCode(insnBuilder.classCode)
+                .withVisibleParameterAnnotations(visibleParameterAnnotations)
+                .withInvisibleParameterAnnotations(invisibleParameterAnnotations)
+                .build()
+                .withUnknownAttrs(attrNames))
         }
     }
 
     class FieldBuilder(
         clazz: Location.Class?,
-        private val access: Int,
-        private val name: String,
-        private val descriptor: String,
-        private val signature: String?,
+        access: Int,
+        name: String,
+        descriptor: String,
+        signature: String?,
         value: Any?,
         private val onEnd: (ClassField) -> Unit,
     ) : FieldVisitor(Opcodes.ASM9) {
         val location = clazz?.let { Location.Field(clazz.name, name, descriptor) }
 
-        private val value = value?.let { Insns.newConstant(it, location) }
+        private val builder = ClassFieldBuilder(access, name, descriptor)
+            .withSignature(signature)
+            .withValue(value?.let { Insns.newConstant(it, location) })
 
-        private val visibleAnnotations = mutableListOf<ClassAnnotation>()
-        private val invisibleAnnotations = mutableListOf<ClassAnnotation>()
-        private val visibleTypeAnnotations = mutableListOf<ClassTypeAnnotation>()
-        private val invisibleTypeAnnotations = mutableListOf<ClassTypeAnnotation>()
         private val unknownAttributes = mutableListOf<String>()
 
         override fun visitAnnotation(descriptor: String, visible: Boolean): AnnotationVisitor =
             AnnotationBuilder.ofAnnotation(descriptor, location,
-                if (visible) visibleAnnotations else invisibleAnnotations)
+                if (visible) builder::addVisibleAnnotation else builder::addInvisibleAnnotation)
 
         override fun visitTypeAnnotation(
             typeRef: Int,
@@ -292,45 +237,34 @@ internal object Builders {
             descriptor: String,
             visible: Boolean
         ): AnnotationVisitor = AnnotationBuilder.ofTypeAnnotation(descriptor, typeRef, typePath, location,
-            if (visible) visibleTypeAnnotations else invisibleTypeAnnotations)
+            if (visible) builder::addVisibleTypeAnnotation else builder::addInvisibleTypeAnnotation)
 
         override fun visitAttribute(attribute: Attribute) {
             unknownAttributes.add(attribute.type)
         }
 
         override fun visitEnd() {
-            onEnd(ClassField(
-                access,
-                name,
-                descriptor,
-                signature,
-                value,
-                visibleAnnotations,
-                invisibleAnnotations,
-                visibleTypeAnnotations,
-                invisibleTypeAnnotations,
-            ).withUnknownAttrs(unknownAttributes))
+            onEnd(builder.build().withUnknownAttrs(unknownAttributes))
         }
     }
 
     class RecordFieldBuilder(
         clazz: Location.Class?,
-        private val name: String,
-        private val descriptor: String,
-        private val signature: String?,
+        name: String,
+        descriptor: String,
+        signature: String?,
         private val onEnd: (ClassRecordField) -> Unit,
     ) : RecordComponentVisitor(Opcodes.ASM9) {
         val location = clazz?.let { Location.RecordField(clazz.name, name, descriptor) }
 
-        private val visibleAnnotations = mutableListOf<ClassAnnotation>()
-        private val invisibleAnnotations = mutableListOf<ClassAnnotation>()
-        private val visibleTypeAnnotations = mutableListOf<ClassTypeAnnotation>()
-        private val invisibleTypeAnnotations = mutableListOf<ClassTypeAnnotation>()
+        private val builder = ClassRecordFieldBuilder(name, descriptor)
+            .withSignature(signature)
+
         private val unknownAttributes = mutableListOf<String>()
 
         override fun visitAnnotation(descriptor: String, visible: Boolean): AnnotationVisitor =
             AnnotationBuilder.ofAnnotation(descriptor, location,
-                if (visible) visibleAnnotations else invisibleAnnotations)
+                if (visible) builder::addVisibleAnnotation else builder::addInvisibleAnnotation)
 
         override fun visitTypeAnnotation(
             typeRef: Int,
@@ -338,22 +272,14 @@ internal object Builders {
             descriptor: String,
             visible: Boolean
         ): AnnotationVisitor = AnnotationBuilder.ofTypeAnnotation(descriptor, typeRef, typePath, location,
-            if (visible) visibleTypeAnnotations else invisibleTypeAnnotations)
+            if (visible) builder::addVisibleTypeAnnotation else builder::addInvisibleTypeAnnotation)
 
         override fun visitAttribute(attribute: Attribute) {
             unknownAttributes.add(attribute.type)
         }
 
         override fun visitEnd() {
-            onEnd(ClassRecordField(
-                name,
-                descriptor,
-                signature,
-                visibleAnnotations,
-                invisibleAnnotations,
-                visibleTypeAnnotations,
-                invisibleTypeAnnotations,
-            ).withUnknownAttrs(unknownAttributes))
+            onEnd(builder.build().withUnknownAttrs(unknownAttributes))
         }
     }
 
@@ -387,10 +313,10 @@ internal object Builders {
         }
 
         companion object {
-            fun ofAnnotation(
+            fun <T> ofAnnotation(
                 descriptor: String,
                 location: Location?,
-                onEnd: (ClassAnnotation) -> Unit,
+                onEnd: (ClassAnnotation) -> T,
             ): AnnotationBuilder<KeyValuePair> {
                 check(descriptor[0] == 'L') { "the type of annotation must be a class" }
                 val annotationClass = ClassReference(descriptor.substring(1, descriptor.length - 1))
@@ -404,7 +330,17 @@ internal object Builders {
                 descriptor: String,
                 location: Location?,
                 addTo: MutableCollection<in ClassAnnotation>,
-            ) = ofAnnotation(descriptor, location) { addTo.add(it) }
+            ) = ofAnnotation(descriptor, location) { addTo.add(it); }
+
+            fun <T> ofTypeAnnotation(
+                descriptor: String,
+                typeRef: Int,
+                typePath: ASMTypePath?,
+                location: Location?,
+                onEnd: (ClassTypeAnnotation) -> T,
+            ) = ofAnnotation(descriptor, location) {
+                onEnd(ClassTypeAnnotation(TypeReference(typeRef), typePath?.let(::newTypePath), it))
+            }
 
             fun ofTypeAnnotation(
                 descriptor: String,
@@ -412,9 +348,7 @@ internal object Builders {
                 typePath: ASMTypePath?,
                 location: Location?,
                 addTo: MutableCollection<in ClassTypeAnnotation>,
-            ) = ofAnnotation(descriptor, location) {
-                addTo.add(ClassTypeAnnotation(TypeReference(typeRef), typePath?.let(::newTypePath), it))
-            }
+            ) = ofTypeAnnotation(descriptor, typeRef, typePath, location, addTo::add)
 
             fun ofArray(
                 location: Location?,

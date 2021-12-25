@@ -1,5 +1,7 @@
 package com.anatawa12.relocator.classes
 
+import com.anatawa12.relocator.builder.BuildBuilder
+import com.anatawa12.relocator.builder.StaticBuilderArg
 import com.anatawa12.relocator.diagnostic.Location
 import com.anatawa12.relocator.internal.*
 import com.anatawa12.relocator.internal.BasicDiagnostics.UNSUPPORTED_ATTRIBUTE
@@ -14,13 +16,13 @@ import kotlinx.atomicfu.atomic
 import org.objectweb.asm.ClassReader
 import java.lang.Exception
 
-// TODO: add builder and make constructor parameter builder
 // TODO: module support
 
+@BuildBuilder
 class ClassFile constructor(
-    val version: Int,
-    val access: Int,
-    val name: String,
+    @StaticBuilderArg val version: Int,
+    @StaticBuilderArg val access: Int,
+    @StaticBuilderArg val name: String,
     val signature: String?,
     val superName: ClassReference?,
     val interfaces: List<ClassReference>,
@@ -89,7 +91,7 @@ class ClassFile constructor(
             try {
                 reader.accept(builder, if (noCode) ClassReader.SKIP_CODE else 0)
             } catch (e: Exception) {
-                throw IllegalArgumentException("reading ${reader.className}", e);
+                throw IllegalArgumentException("reading ${reader.className}", e)
             }
             return builder.classFile!!
         }
@@ -127,10 +129,11 @@ class ClassInnerClass(
         "inner class ${modifiers(access, 0)} $name outer: $outerName inner: $innerName"
 }
 
+@BuildBuilder
 class ClassMethod constructor(
-    val access: Int,
-    val name: String,
-    val descriptor: String,
+    @StaticBuilderArg val access: Int,
+    @StaticBuilderArg val name: String,
+    @StaticBuilderArg val descriptor: String,
     val signature: String?,
     val exceptions: List<ClassReference>,
     val parameters: List<ClassParameter>,
@@ -179,10 +182,11 @@ class ClassMethod constructor(
     }
 }
 
+@BuildBuilder
 class ClassField constructor(
-    val access: Int,
-    val name: String,
-    val descriptor: String,
+    @StaticBuilderArg val access: Int,
+    @StaticBuilderArg val name: String,
+    @StaticBuilderArg val descriptor: String,
     val signature: String?,
     val value: Constant?,
     val visibleAnnotations: List<ClassAnnotation>,
@@ -223,9 +227,10 @@ class ClassField constructor(
     }
 }
 
+@BuildBuilder
 class ClassRecordField(
-    val name: String,
-    val descriptor: String,
+    @StaticBuilderArg val name: String,
+    @StaticBuilderArg val descriptor: String,
     val signature: String?,
     val visibleAnnotations: List<ClassAnnotation>,
     val invisibleAnnotations: List<ClassAnnotation>,
