@@ -66,3 +66,4 @@ internal inline fun <reified T> Array<T>.takeIfNonZero(count: Int) = if (count =
 
 internal operator fun KeyValuePair.component1() = key
 internal operator fun KeyValuePair.component2() = value
+internal fun singleRange(value: Int): IntRange = value..value

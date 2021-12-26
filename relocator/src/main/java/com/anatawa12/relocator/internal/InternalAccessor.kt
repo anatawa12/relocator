@@ -62,3 +62,15 @@ internal val ReflectionMappingContainer.fields get() = reflectionMappingFields()
 
 internal lateinit var reflectionMappingRefFields: ReflectionMappingContainer.() -> SetMultimap<FieldReference, MemberRef>
 internal val ReflectionMappingContainer.refFields get() = reflectionMappingRefFields()
+
+/*
+internal lateinit var newTypeParameter: (String, IntRange, TypeParameterIndices) -> TypeParameter
+internal fun TypeParameter(signature: String, range: IntRange, parsed: TypeParameterIndices) =
+    newTypeParameter(signature, range, parsed)
+*/
+
+// initialize non-order-dependent classes 
+@Suppress("ObjectPropertyName", "unused")
+private val _init: Unit = run {
+    //TypeParameter("I:")
+}
