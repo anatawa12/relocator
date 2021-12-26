@@ -6,15 +6,15 @@ sealed class AnnotationValue() {
     abstract override fun toString(): String
 }
 
-class KeyValuePair(val key: String, val value: AnnotationValue)
+class KeyValuePair(var key: String, var value: AnnotationValue)
 
 class ClassAnnotation : AnnotationValue {
-    val annotationClass: ClassReference
-    val values: List<KeyValuePair>
+    var annotationClass: ClassReference
+    var values: MutableList<KeyValuePair>
 
     constructor(annotationClass: ClassReference, values: List<KeyValuePair>) {
         this.annotationClass = annotationClass
-        this.values = values.toList()
+        this.values = values.toMutableList()
     }
 
     constructor(annotationClass: ClassReference, vararg values: KeyValuePair)
@@ -50,14 +50,15 @@ class AnnotationDouble(val value: Double) : AnnotationValue() {
 class AnnotationString(val value: String) : AnnotationValue() {
     override fun toString(): String = "string $value"
 }
-class AnnotationEnum(val owner: ClassReference, val value: String) : AnnotationValue() {
+class AnnotationEnum(var owner: ClassReference, val value: String) : AnnotationValue() {
     override fun toString(): String = "enum $owner.$value"
 }
 class AnnotationClass(val descriptor: String) : AnnotationValue() {
     override fun toString(): String = "class $descriptor"
 }
-class AnnotationArray(val values: List<AnnotationValue>) : AnnotationValue(), List<AnnotationValue> by values {
-    constructor(vararg values: AnnotationValue): this(values.toList())
+class AnnotationArray(values: List<AnnotationValue>) : AnnotationValue(), List<AnnotationValue> by values {
+    val values = values.toMutableList()
+    constructor(vararg values: AnnotationValue): this(values.asList())
     constructor(values: ByteArray): this(values.map(::AnnotationByte))
     constructor(values: BooleanArray): this(values.map(::AnnotationBoolean))
     constructor(values: CharArray): this(values.map(::AnnotationChar))

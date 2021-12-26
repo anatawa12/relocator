@@ -942,7 +942,7 @@ internal object ClassRefCollectingAnnotationVisitor {
     fun acceptAnnotations(
         references: MutableCollection<in ClassReference>,
         env: ComputeReferenceEnvironment,
-        annotations: Array<List<ClassAnnotation>?>,
+        annotations: Array<out List<ClassAnnotation>?>,
     ) {
         for (annotationNodes in annotations) {
             annotationNodes?.forEach { acceptAnnotation(references, env, it) }

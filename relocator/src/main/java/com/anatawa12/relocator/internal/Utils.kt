@@ -16,6 +16,8 @@ internal fun Int.hasFlag(flag: Int): Boolean = (this and flag) == flag
 internal operator fun DiagnosticHandler.invoke(diagnostic: Diagnostic) = handle(diagnostic)
 internal inline fun <reified R, T : R> Array<T>.copy(): Array<R> = Array(size) { this[it] }
 
+internal inline fun <reified R, T> Array<T>.mapToArray(map: (T) -> R): Array<R> = Array(size) { map(this[it]) }
+
 class TaskQueue(
     val scope: CoroutineScope,
 ) {

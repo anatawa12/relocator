@@ -10,15 +10,19 @@ import kotlinx.atomicfu.atomic
 
 class ClassCode(
     instructions: InsnList,
-    val tryCatchBlocks: List<TryCatchBlock>,
-    val maxStack: Int,
-    val maxLocals: Int,
+    tryCatchBlocks: List<TryCatchBlock>,
+    var maxStack: Int,
+    var maxLocals: Int,
     localVariables: List<LocalVariable>,
-    val visibleLocalVariableAnnotations: List<ClassLocalVariableAnnotation>,
-    val invisibleLocalVariableAnnotations: List<ClassLocalVariableAnnotation>,
+    visibleLocalVariableAnnotations: List<ClassLocalVariableAnnotation>,
+    invisibleLocalVariableAnnotations: List<ClassLocalVariableAnnotation>,
 ) {
-    var instructions: InsnList = ownerAccessorInsnList.preInit(this, instructions)
-        set(value) = ownerAccessorInsnList.doSet(this, field, value) { field = it }
+    val instructions: InsnList = ownerAccessorInsnList.preInit(this, instructions)
+
+    val tryCatchBlocks = tryCatchBlocks.toMutableList()
+    val visibleLocalVariableAnnotations = visibleLocalVariableAnnotations.toMutableList()
+    val invisibleLocalVariableAnnotations = invisibleLocalVariableAnnotations.toMutableList()
+
     private val owner = atomic<ClassMethod?>(null)
     val localVariables: MutableList<LocalVariable> = OwnerBasedList(this, ownerAccessorLocalVariable)
         .apply { addAll(localVariables) }
@@ -65,6 +69,10 @@ class InsnList : MutableList<Insn> by ArrayList() {
 }
 
 sealed class Insn {
+    init {
+        StaticInit.init()
+    }
+
     @Suppress("LeakingThis")
     val labelsToMe: MutableSet<CodeLabel> = OwnerBasedSet(this, ownerAccessorCodeLabel)
     val visibleAnnotations: MutableList<ClassTypeAnnotation> = ArrayList(0)
@@ -75,6 +83,14 @@ sealed class Insn {
             require(value == -1 || value in Insns.ushortRange) { "lineNumber out of range" }
             field = value
         }
+
+    private object StaticInit {
+        init {
+            CodeLabel()
+        }
+        @JvmStatic
+        fun init() {}
+    }
 }
 
 enum class VMType {
@@ -154,7 +170,7 @@ class CastInsn(val from: VMType, val to: VMType): Insn() {
     }
 }
 
-class VarInsn(val insn: VarInsnType, val type: VMType, val variable: Int) : Insn() {
+class VarInsn(val insn: VarInsnType, val type: VMType, var variable: Int) : Insn() {
     init {
         require(type in Insns.vmBasicTypes) { "$type is invalid for variable" }
         require(variable in Insns.ushortRange) { "variable id out of range: $variable" }
@@ -166,13 +182,13 @@ enum class VarInsnType {
     STORE,
 }
 
-class RetInsn(val variable: Int) : Insn() {
+class RetInsn(var variable: Int) : Insn() {
     init {
         require(variable in Insns.ushortRange) { "variable id out of range: $variable" }
     }
 }
 
-class TypeInsn(val insn: TypeInsnType, val type: ClassReference) : Insn() {
+class TypeInsn(val insn: TypeInsnType, var type: ClassReference) : Insn() {
     init {
         if (insn == TypeInsnType.NEW)
             require(type.name[0] != '[') { "type for NEW insn must not a array." }
@@ -186,7 +202,7 @@ enum class TypeInsnType {
     INSTANCEOF,
 }
 
-class FieldInsn(val insn: FieldInsnType, val field: FieldReference) : Insn()
+class FieldInsn(val insn: FieldInsnType, var field: FieldReference) : Insn()
 
 enum class FieldInsnType {
     GETSTATIC,
@@ -195,7 +211,7 @@ enum class FieldInsnType {
     PUTFIELD,
 }
 
-class MethodInsn(val insn: MethodInsnType, val method: MethodReference, val isInterface: Boolean) : Insn() {
+class MethodInsn(val insn: MethodInsnType, var method: MethodReference, var isInterface: Boolean) : Insn() {
     init {
         require(method.name != "<clinit>") { "we can't call <clinit>" }
         if (method.name == "<init>") {
@@ -216,11 +232,11 @@ enum class MethodInsnType {
     INVOKEINTERFACE,
 }
 
-class InvokeDynamicInsn(val target: ConstantDynamic) : Insn()
+class InvokeDynamicInsn(var target: ConstantDynamic) : Insn()
 
 class JumpInsn(
     val insn: JumpInsnType,
-    val target: CodeLabel,
+    var target: CodeLabel,
 ) : Insn()
 
 enum class JumpInsnType {
@@ -244,9 +260,9 @@ enum class JumpInsnType {
     IFNONNULL,
 }
 
-class LdcInsn(val value: Constant) : Insn()
+class LdcInsn(var value: Constant) : Insn()
 
-class IIncInsn(val variable: Int, val value: Int) : Insn() {
+class IIncInsn(var variable: Int, var value: Int) : Insn() {
     init {
         require(variable in Insns.ushortRange) { "variable id out of range: $variable" }
         require(variable in Insns.shortRange) { "iinc avlue out of range: $value" }
@@ -254,17 +270,21 @@ class IIncInsn(val variable: Int, val value: Int) : Insn() {
 }
 
 class TableSwitchInsn(
-    val min: Int,
-    val default: CodeLabel,
-    val labels: List<CodeLabel>
-) : Insn()
+    var min: Int,
+    var default: CodeLabel,
+    labels: List<CodeLabel>
+) : Insn() {
+    val labels = labels.toMutableList()
+}
 
 class LookupSwitchInsn(
-    val default: CodeLabel,
-    val labels: Map<Int, CodeLabel>
-) : Insn()
+    var default: CodeLabel,
+    labels: Map<Int, CodeLabel>
+) : Insn() {
+    val labels = labels.toMutableMap()
+}
 
-class MultiANewArrayInsn(val type: ClassReference, val dimensions: Int) : Insn() {
+class MultiANewArrayInsn(var type: ClassReference, var dimensions: Int) : Insn() {
     init {
         require(dimensions != 0 && dimensions in Insns.ubyteRange) { "dimensions out of range: $dimensions" }
         require(type.name.startsWith('[')) { "type for MULTIANEWARRAY must be a array" }

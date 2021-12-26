@@ -20,29 +20,38 @@ import java.lang.Exception
 
 @BuildBuilder
 class ClassFile private constructor(
-    @StaticBuilderArg val version: Int,
-    @StaticBuilderArg val access: Int,
-    @StaticBuilderArg val name: String,
-    val signature: String?,
-    val superName: ClassReference?,
-    val interfaces: List<ClassReference>,
-    val sourceFile: String?,
-    val sourceDebug: String?,
-    val outerClass: ClassReference?,
-    val outerMethod: String?,
-    val outerMethodDesc: String?,
-    val visibleAnnotations: List<ClassAnnotation>,
-    val invisibleAnnotations: List<ClassAnnotation>,
-    val visibleTypeAnnotations: List<ClassTypeAnnotation>,
-    val invisibleTypeAnnotations: List<ClassTypeAnnotation>,
-    val innerClasses: List<ClassInnerClass>,
-    val nestHostClass: ClassReference?,
-    val nestMembers: List<ClassReference>,
-    val permittedSubclasses: List<ClassReference>,
+    @StaticBuilderArg var version: Int,
+    @StaticBuilderArg var access: Int,
+    @StaticBuilderArg var name: String,
+    var signature: String?,
+    var superName: ClassReference?,
+    interfaces: List<ClassReference>,
+    var sourceFile: String?,
+    var sourceDebug: String?,
+    var outerClass: ClassReference?,
+    var outerMethod: String?,
+    var outerMethodDesc: String?,
+    visibleAnnotations: List<ClassAnnotation>,
+    invisibleAnnotations: List<ClassAnnotation>,
+    visibleTypeAnnotations: List<ClassTypeAnnotation>,
+    invisibleTypeAnnotations: List<ClassTypeAnnotation>,
+    innerClasses: List<ClassInnerClass>,
+    var nestHostClass: ClassReference?,
+    nestMembers: List<ClassReference>,
+    permittedSubclasses: List<ClassReference>,
     methods: List<ClassMethod>,
     fields: List<ClassField>,
     recordFields: List<ClassRecordField>,
 ) {
+    val interfaces = interfaces.toMutableList()
+    val visibleAnnotations = visibleAnnotations.toMutableList()
+    val invisibleAnnotations = invisibleAnnotations.toMutableList()
+    val visibleTypeAnnotations = visibleTypeAnnotations.toMutableList()
+    val invisibleTypeAnnotations = invisibleTypeAnnotations.toMutableList()
+    val innerClasses = innerClasses.toMutableList()
+    val nestMembers = nestMembers.toMutableList()
+    val permittedSubclasses = permittedSubclasses.toMutableList()
+
     var included: Boolean = false
     internal val innerClassesContainer by lazy { InnerClassContainer(innerClasses) }
     lateinit var references: Set<Reference>
@@ -180,21 +189,30 @@ class ClassInnerClass(
 
 @BuildBuilder
 class ClassMethod private constructor(
-    @StaticBuilderArg val access: Int,
-    @StaticBuilderArg val name: String,
-    @StaticBuilderArg val descriptor: String,
-    val signature: String?,
-    val exceptions: List<ClassReference>,
-    val parameters: List<ClassParameter>,
-    val visibleAnnotations: List<ClassAnnotation>,
-    val invisibleAnnotations: List<ClassAnnotation>,
-    val visibleTypeAnnotations: List<ClassTypeAnnotation>,
-    val invisibleTypeAnnotations: List<ClassTypeAnnotation>,
-    val annotationDefault: AnnotationValue?,
-    val visibleParameterAnnotations: Array<List<ClassAnnotation>?>,
-    val invisibleParameterAnnotations: Array<List<ClassAnnotation>?>,
+    @StaticBuilderArg var access: Int,
+    @StaticBuilderArg var name: String,
+    @StaticBuilderArg var descriptor: String,
+    var signature: String?,
+    exceptions: List<ClassReference>,
+    parameters: List<ClassParameter>,
+    visibleAnnotations: List<ClassAnnotation>,
+    invisibleAnnotations: List<ClassAnnotation>,
+    visibleTypeAnnotations: List<ClassTypeAnnotation>,
+    invisibleTypeAnnotations: List<ClassTypeAnnotation>,
+    var annotationDefault: AnnotationValue?,
+    visibleParameterAnnotations: Array<List<ClassAnnotation>?>,
+    invisibleParameterAnnotations: Array<List<ClassAnnotation>?>,
     classCode: ClassCode?,
 ) {
+    val exceptions = exceptions.toMutableList()
+    val parameters = parameters.toMutableList()
+    val visibleAnnotations = visibleAnnotations.toMutableList()
+    val invisibleAnnotations = invisibleAnnotations.toMutableList()
+    val visibleTypeAnnotations = visibleTypeAnnotations.toMutableList()
+    val invisibleTypeAnnotations = invisibleTypeAnnotations.toMutableList()
+    val visibleParameterAnnotations = visibleParameterAnnotations.mapToArray { it?.toMutableList() }
+    val invisibleParameterAnnotations = invisibleParameterAnnotations.mapToArray { it?.toMutableList() }
+
     var included: Boolean = false
     lateinit var references: Set<Reference>
     val externalReferences = mutableSetOf<Reference>()
@@ -265,16 +283,21 @@ class ClassMethod private constructor(
 
 @BuildBuilder
 class ClassField private constructor(
-    @StaticBuilderArg val access: Int,
-    @StaticBuilderArg val name: String,
-    @StaticBuilderArg val descriptor: String,
-    val signature: String?,
-    val value: Constant?,
-    val visibleAnnotations: List<ClassAnnotation>,
-    val invisibleAnnotations: List<ClassAnnotation>,
-    val visibleTypeAnnotations: List<ClassTypeAnnotation>,
-    val invisibleTypeAnnotations: List<ClassTypeAnnotation>,
+    @StaticBuilderArg var access: Int,
+    @StaticBuilderArg var name: String,
+    @StaticBuilderArg var descriptor: String,
+    var signature: String?,
+    var value: Constant?,
+    visibleAnnotations: List<ClassAnnotation>,
+    invisibleAnnotations: List<ClassAnnotation>,
+    visibleTypeAnnotations: List<ClassTypeAnnotation>,
+    invisibleTypeAnnotations: List<ClassTypeAnnotation>,
 ) {
+    val visibleAnnotations = visibleAnnotations.toMutableList()
+    val invisibleAnnotations = invisibleAnnotations.toMutableList()
+    val visibleTypeAnnotations = visibleTypeAnnotations.toMutableList()
+    val invisibleTypeAnnotations = invisibleTypeAnnotations.toMutableList()
+
     var included: Boolean = false
     lateinit var references: Set<ClassReference>
     val externalReferences = mutableSetOf<Reference>()
@@ -332,14 +355,19 @@ class ClassField private constructor(
 
 @BuildBuilder
 class ClassRecordField(
-    @StaticBuilderArg val name: String,
-    @StaticBuilderArg val descriptor: String,
-    val signature: String?,
-    val visibleAnnotations: List<ClassAnnotation>,
-    val invisibleAnnotations: List<ClassAnnotation>,
-    val visibleTypeAnnotations: List<ClassTypeAnnotation>,
-    val invisibleTypeAnnotations: List<ClassTypeAnnotation>,
+    @StaticBuilderArg var name: String,
+    @StaticBuilderArg var descriptor: String,
+    var signature: String?,
+    visibleAnnotations: List<ClassAnnotation>,
+    invisibleAnnotations: List<ClassAnnotation>,
+    visibleTypeAnnotations: List<ClassTypeAnnotation>,
+    invisibleTypeAnnotations: List<ClassTypeAnnotation>,
 ) {
+    val visibleAnnotations = visibleAnnotations.toMutableList()
+    val invisibleAnnotations = invisibleAnnotations.toMutableList()
+    val visibleTypeAnnotations = visibleTypeAnnotations.toMutableList()
+    val invisibleTypeAnnotations = invisibleTypeAnnotations.toMutableList()
+
     var included: Boolean = false
     lateinit var references: Set<Reference>
     val externalReferences = mutableSetOf<Reference>()

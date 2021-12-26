@@ -11,19 +11,19 @@ class ClassParameter(
 )
 
 class TryCatchBlock(
-    val start: CodeLabel,
-    val end: CodeLabel,
-    val handler: CodeLabel,
-    val type: ClassReference?,
+    var start: CodeLabel,
+    var end: CodeLabel,
+    var handler: CodeLabel,
+    var type: ClassReference?,
 ) {
     val visibleAnnotations: MutableList<ClassTypeAnnotation> = ArrayList(0)
     val invisibleAnnotations: MutableList<ClassTypeAnnotation> = ArrayList(0)
 }
 
 class LocalVariable(
-    val name: String,
-    val descriptor: String,
-    val signature: String?,
+    var name: String,
+    var descriptor: String,
+    var signature: String?,
     val start: CodeLabel,
     val end: CodeLabel,
     val index: Int,
