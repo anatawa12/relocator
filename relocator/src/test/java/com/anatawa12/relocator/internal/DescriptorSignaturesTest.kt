@@ -1,56 +1,65 @@
 package com.anatawa12.relocator.internal
 
-import org.amshove.kluent.*
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
-internal class DescriptorSignaturesTest {
-    @Test
-    fun parseMethodDesc() {
-        DescriptorSignatures.parseMethodDesc("()V")
-            .shouldBeEqualTo(intArrayOf())
-        DescriptorSignatures.parseMethodDesc("(I)V")
-            .shouldBeEqualTo(intArrayOf(2))
-        DescriptorSignatures.parseMethodDesc("(L${"java/lang/String"};)V")
-            .shouldBeEqualTo(intArrayOf(19))
-        DescriptorSignatures.parseMethodDesc("(L${"java/lang/String"};I)V")
-            .shouldBeEqualTo(intArrayOf(19, 20))
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.core.spec.style.DescribeSpec
+import io.kotest.core.spec.style.scopes.DescribeSpecContainerScope
+import io.kotest.matchers.shouldBe
 
-        fun assertIAE(desc: String) = assertThrows<IllegalArgumentException> {
-            DescriptorSignatures.parseMethodDesc(desc)
+internal class DescriptorSignaturesTest : DescribeSpec() {
+    suspend inline fun <T> DescribeSpecContainerScope.assertIAE(desc: String, crossinline test: (String) -> T) {
+        it ("falling '$desc'") {
+            shouldThrow<IllegalArgumentException> {
+                test(desc)
+            }
         }
-
-        assertIAE("L${"java/lang/String"};")
-        assertIAE("(L${"java/lang/String"};")
-        assertIAE("(L${"java/lang/String"};)")
-        assertIAE("(L${"java"}")
-        assertIAE("(L${"java/lang/String"};)L")
-        assertIAE("(L${"java/lang/String"};)V traling")
     }
 
-    @Test
-    fun parseTypeDesc() {
-        DescriptorSignatures.parseTypeDesc("V", TypeKind.Voidable)
-        DescriptorSignatures.parseTypeDesc("I", TypeKind.Primitive)
-        DescriptorSignatures.parseTypeDesc("L${"java/lang/String"};", TypeKind.RefOnly)
-        DescriptorSignatures.parseTypeDesc("[L${"java/lang/String"};", TypeKind.RefOnly)
+    suspend inline fun <T> DescribeSpecContainerScope.assertSuccessful(desc: String, crossinline test: (String) -> T) {
+        it ("successful '$desc'") {
+            test(desc)
+        }
+    }
 
-        fun assertIAE(desc: String) = assertThrows<IllegalArgumentException> {
-            DescriptorSignatures.parseTypeDesc(desc, TypeKind.RefOnly)
+    init {
+        describe("parsing method descriptor") {
+            it (" -> void") {
+                DescriptorSignatures.parseMethodDesc("()V") shouldBe intArrayOf()
+            }
+            it ("string -> void") {
+                DescriptorSignatures.parseMethodDesc("(L${"java/lang/String"};)V") shouldBe intArrayOf(19)
+            }
+            it ("strubgm int -> void") {
+                DescriptorSignatures.parseMethodDesc("(L${"java/lang/String"};I)V") shouldBe intArrayOf(19, 20)
+            }
+
+            assertIAE("L${"java/lang/String"};", DescriptorSignatures::parseMethodDesc)
+            assertIAE("(L${"java/lang/String"};", DescriptorSignatures::parseMethodDesc)
+            assertIAE("(L${"java/lang/String"};)", DescriptorSignatures::parseMethodDesc)
+            assertIAE("(L${"java"}", DescriptorSignatures::parseMethodDesc)
+            assertIAE("(L${"java/lang/String"};)L", DescriptorSignatures::parseMethodDesc)
+            assertIAE("(L${"java/lang/String"};)V traling", DescriptorSignatures::parseMethodDesc)
         }
 
-        assertIAE("V")
-        assertIAE("L${"java/lang/String"}")
-        assertIAE("[[")
-        assertIAE("L${""};")
-        assertIAE("L${"java/"};")
-        assertIAE("L${"/java/lang"};")
-        assertIAE("L${"java//lang"};")
-        assertIAE("L${"<"};")
-        assertIAE("L${">"};")
-        assertIAE("L${"["};")
-        assertIAE("L${"."};")
-        assertIAE("L${":"};")
-        assertIAE("L${"java/lang/String"}; traling")
+        describe("parsing type descriptor") {
+            assertSuccessful("V") { DescriptorSignatures.parseTypeDesc(it, TypeKind.Voidable) }
+            assertSuccessful("I") { DescriptorSignatures.parseTypeDesc(it, TypeKind.Primitive) }
+            assertSuccessful("L${"java/lang/String"};") { DescriptorSignatures.parseTypeDesc(it, TypeKind.RefOnly) }
+            assertSuccessful("[L${"java/lang/String"};") { DescriptorSignatures.parseTypeDesc(it, TypeKind.RefOnly) }
+
+            assertIAE("V") { DescriptorSignatures.parseTypeDesc(it, TypeKind.RefOnly) }
+            assertIAE("L${"java/lang/String"}") { DescriptorSignatures.parseTypeDesc(it, TypeKind.RefOnly) }
+            assertIAE("[[") { DescriptorSignatures.parseTypeDesc(it, TypeKind.RefOnly) }
+            assertIAE("L${""};") { DescriptorSignatures.parseTypeDesc(it, TypeKind.RefOnly) }
+            assertIAE("L${"java/"};") { DescriptorSignatures.parseTypeDesc(it, TypeKind.RefOnly) }
+            assertIAE("L${"/java/lang"};") { DescriptorSignatures.parseTypeDesc(it, TypeKind.RefOnly) }
+            assertIAE("L${"java//lang"};") { DescriptorSignatures.parseTypeDesc(it, TypeKind.RefOnly) }
+            assertIAE("L${"<"};") { DescriptorSignatures.parseTypeDesc(it, TypeKind.RefOnly) }
+            assertIAE("L${">"};") { DescriptorSignatures.parseTypeDesc(it, TypeKind.RefOnly) }
+            assertIAE("L${"["};") { DescriptorSignatures.parseTypeDesc(it, TypeKind.RefOnly) }
+            assertIAE("L${"."};") { DescriptorSignatures.parseTypeDesc(it, TypeKind.RefOnly) }
+            assertIAE("L${":"};") { DescriptorSignatures.parseTypeDesc(it, TypeKind.RefOnly) }
+            assertIAE("L${"java/lang/String"}; traling") { DescriptorSignatures.parseTypeDesc(it, TypeKind.RefOnly) }
+        }
     }
 
 // TODO: rewrite test

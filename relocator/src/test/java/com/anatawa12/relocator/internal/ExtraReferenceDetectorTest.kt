@@ -3,11 +3,11 @@ package com.anatawa12.relocator.internal
 import com.anatawa12.relocator.classes.*
 import com.anatawa12.relocator.diagnostic.Location
 import com.anatawa12.relocator.reference.*
+import io.kotest.core.spec.style.DescribeSpec
+import io.kotest.matchers.collections.*
+import io.kotest.matchers.*
 
-import org.amshove.kluent.*
-import org.junit.jupiter.api.Test
-
-internal class ExtraReferenceDetectorTest {
+internal class ExtraReferenceDetectorTest : DescribeSpec() {
     private val env = newComputeReferenceEnvironment()
     private val location = Location.None
 
@@ -27,43 +27,59 @@ internal class ExtraReferenceDetectorTest {
         return detector.pop()
     }
 
-    @Test
-    fun detectExtraMethodReference() {
-        detectExtraReference(stringFormat) `should contain` PartialMethodReference(
-            "java/lang/String",
-            "format",
-            "(Ljava/util/Locale;Ljava/lang/String;[Ljava/lang/Object;)")
-        detectExtraReference(stringIndexOf) `should contain` PartialMethodReference(
-            "java/lang/String",
-            "indexOf",
-            "(I)")
-    }
-    @Test
-    fun detectExtraFieldReference() {
-        detectExtraReference(stringCaseInsensitiveOrder) `should contain` PartialFieldReference(
-            "java/lang/String",
-            "CASE_INSENSITIVE_ORDER")
-    }
+    init {
+        describe("method reference") {
+            it("static string.format") {
+                detectExtraReference(stringFormat) shouldContain PartialMethodReference(
+                    "java/lang/String",
+                    "format",
+                    "(Ljava/util/Locale;Ljava/lang/String;[Ljava/lang/Object;)")
+            }
+            it("virtual string.indexOf") {
+                detectExtraReference(stringIndexOf) shouldContain PartialMethodReference(
+                    "java/lang/String",
+                    "indexOf",
+                    "(I)")
+            }
+        }
 
-    @Test
-    fun resolveOnStackClass() {
-        checkOnStackValue(simpleReflectionString) `should be equal to`
-                ConstantClass("L${"java/lang/String"};")
-        checkOnStackValue(withClassLoaderReflectionString) `should be equal to`
-                ConstantClass("L${"java/lang/String"};")
-        checkOnStackValue(loadClassFunctionReflectionString) `should be equal to`
-                ConstantClass("L${"java/lang/String"};")
-        checkOnStackValue(listOf(
-            FieldInsn(FieldInsnType.GETSTATIC, FieldReference("java/lang/Integer", "TYPE", "Ljava/lang/Class;"))
-        )) `should be equal to` ConstantClass("I")
-    }
+        it("field reference") {
+            detectExtraReference(stringCaseInsensitiveOrder) shouldContain PartialFieldReference(
+                "java/lang/String",
+                "CASE_INSENSITIVE_ORDER")
+        }
 
-    @Test
-    fun resolveOnStackClassArray() {
-        checkOnStackValue(localeStringObjectClassList) `should be equal to`
-                listOf(ConstantClass("Ljava/util/Locale;"), ConstantClass("Ljava/lang/String;"), ConstantClass("[Ljava/lang/Object;"))
-        checkOnStackValue(intClassList) `should be equal to`
-                listOf(ConstantClass("I"))
+        describe("on stack class value") {
+            it("reflection class with static Class.forName(String)") {
+                checkOnStackValue(simpleReflectionString) shouldBe ConstantClass("L${"java/lang/String"};")
+            }
+            it("reflection class with static Class.forName(String, boolean, ClassLoader)") {
+                checkOnStackValue(withClassLoaderReflectionString) shouldBe ConstantClass("L${"java/lang/String"};")
+            }
+            it("reflection class with static ClassLoader.loadClass(String)") {
+                checkOnStackValue(loadClassFunctionReflectionString) shouldBe ConstantClass("L${"java/lang/String"};")
+            }
+            it("primitive static TYPE field reference") {
+                checkOnStackValue(listOf(
+                    FieldInsn(FieldInsnType.GETSTATIC, FieldReference("java/lang/Integer", "TYPE", "Ljava/lang/Class;")),
+                )) shouldBe ConstantClass("I")
+            }
+        }
+
+        describe("on stack array of class value") {
+            it ("with ldc class constants") {
+                checkOnStackValue(localeStringObjectClassList) shouldBe
+                        listOf(
+                            ConstantClass("Ljava/util/Locale;"),
+                            ConstantClass("Ljava/lang/String;"),
+                            ConstantClass("[Ljava/lang/Object;"),
+                        )
+            }
+            it("with external class reference") {
+                checkOnStackValue(intClassList) shouldBe
+                        listOf(ConstantClass("I"))
+            }
+        }
     }
 
     private val simpleReflectionString = buildList {
@@ -90,7 +106,7 @@ internal class ExtraReferenceDetectorTest {
             MethodReference(
                 "java/lang/Class",
                 "forName",
-                "(L${"java/lang/String"};BL${"java/lang/ClassLoader"};)L${"java/lang/Class"};"),
+                "(L${"java/lang/String"};ZL${"java/lang/ClassLoader"};)L${"java/lang/Class"};"),
             false))
     }
 

@@ -1,7 +1,8 @@
 package com.anatawa12.relocator
 
 import com.anatawa12.relocator.internal.hasFlag
-import org.junit.jupiter.api.Test
+import io.kotest.assertions.fail
+import io.kotest.core.spec.style.DescribeSpec
 import org.objectweb.asm.Opcodes.*
 import java.io.File
 import java.lang.reflect.*
@@ -10,11 +11,8 @@ import kotlin.collections.ArrayDeque
 /**
  * The test to check all ABI doesn't use external classes
  */
-class AllAPIDoesNotUseExternalClass {
-    val bads = mutableListOf<String>()
-
-    @Test
-    fun check() {
+class AllAPIDoesNotUseExternalClass : DescribeSpec() {
+    init {
         val rootDir = File(Relocator::class.java.protectionDomain.codeSource.location.toURI())
         if (!rootDir.isDirectory)
             throw Exception("Relocator is in non-directory classpath")
@@ -22,10 +20,10 @@ class AllAPIDoesNotUseExternalClass {
             val className = file.toRelativeString(rootDir).removeSuffix(".class").replace('/', '.')
             if (className.startsWith("com.anatawa12.relocator.internal.")) continue
             val classFile = Class.forName(className)
-            checkClassFile(classFile)
+            it (className) {
+                checkClassFile(classFile)
+            }
         }
-        if (bads.isNotEmpty())
-            throw Exception("some class have kotlin ABI: \n" + bads.joinToString("\n"))
     }
 
     val anonymousClassPattern = """\$[0-9]""".toRegex()
@@ -156,7 +154,7 @@ class AllAPIDoesNotUseExternalClass {
         while (clazz.isArray) clazz = clazz.componentType
 
         if (clazz.name.startsWith("com.anatawa12.relocator.internal."))
-            bads.add("uses internal at $location")
+            fail("uses internal at $location")
 
         if (clazz.isPrimitive) return
         if (clazz == Metadata::class.java) return
@@ -165,7 +163,7 @@ class AllAPIDoesNotUseExternalClass {
         if (clazz.name.startsWith("java.")) return
         if (clazz.name.startsWith("com.anatawa12.relocator.")) return
 
-        bads.add("uses $clazz at $location")
+        fail("uses $clazz at $location")
     }
 
     val javaKeywords = setOf(

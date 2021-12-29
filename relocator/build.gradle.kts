@@ -27,9 +27,11 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2")
 
     testImplementation(kotlin("reflect"))
-    testImplementation(platform("org.junit:junit-bom:5.8.1"))
-    testImplementation("org.junit.jupiter:junit-jupiter")
-    testImplementation("org.amshove.kluent:kluent:1.68")
+    testImplementation(platform("io.kotest:kotest-bom:5.0.3"))
+    testImplementation("io.kotest:kotest-framework-api")
+    testImplementation("io.kotest:kotest-assertions-core")
+    testRuntimeOnly(platform("io.kotest:kotest-bom:5.0.3"))
+    testRuntimeOnly("io.kotest:kotest-runner-junit5")
 }
 
 kotlin.sourceSets.main {

@@ -1,36 +1,60 @@
 package com.anatawa12.relocator.classes
 
-import org.amshove.kluent.`should be equal to`
-import org.junit.jupiter.api.Test
+import io.kotest.core.spec.style.DescribeSpec
+import io.kotest.matchers.*
 
-internal class MethodDescriptorTest {
-    @Test
-    fun constructor() {
-        MethodDescriptor(void).descriptor
-            .`should be equal to`("()V")
-        MethodDescriptor(string).descriptor
-            .`should be equal to`("()L${"java/lang/String"};")
-        MethodDescriptor(void, int, int).descriptor
-            .`should be equal to`("(II)V")
-        MethodDescriptor(void, string, int).descriptor
-            .`should be equal to`("(L${"java/lang/String"};I)V")
-    }
+internal class MethodDescriptorTest : DescribeSpec() {
+    init {
+        describe("constructor") {
+            it ("returns void") {
+                MethodDescriptor(void).descriptor shouldBe "()V"
+            }
+            it ("returns string") {
+                MethodDescriptor(string).descriptor shouldBe "()L${"java/lang/String"};"
+            }
+            it ("int, int -> void") {
+                MethodDescriptor(void, int, int).descriptor shouldBe "(II)V"
+            }
+            it ("string, int -> void") {
+                MethodDescriptor(void, string, int).descriptor shouldBe "(L${"java/lang/String"};I)V"
+            }
+            it ("string[], int -> void") {
+                MethodDescriptor(void, stringArray, int).descriptor shouldBe "([L${"java/lang/String"};I)V"
+            }
+            it ("string[], int[] -> void") {
+                MethodDescriptor(void, string, intArray).descriptor shouldBe "(L${"java/lang/String"};[I)V"
+            }
+            it ("string, int[] -> int[]") {
+                MethodDescriptor(intArray, string, intArray).descriptor shouldBe "(L${"java/lang/String"};[I)[I"
+            }
+        }
 
-    @Test
-    fun `arguments and returns`() {
-        MethodDescriptor("()V").arguments
-            .`should be equal to`(listOf())
-        MethodDescriptor("(II)V").arguments
-            .`should be equal to`(listOf(int, int))
-        MethodDescriptor("(L${"java/lang/String"};I)V").arguments
-            .`should be equal to`(listOf(string, int))
-        MethodDescriptor("()V").returns
-            .`should be equal to`(void)
-        MethodDescriptor("()L${"java/lang/String"};").returns
-            .`should be equal to`(string)
+        describe("arguments and returns") {
+            it ("empty args") {
+                MethodDescriptor("()V").arguments shouldBe listOf()
+            }
+            it ("int, int args") {
+                MethodDescriptor("(II)V").arguments shouldBe listOf(int, int)
+            }
+            it ("string, int args") {
+                MethodDescriptor("(L${"java/lang/String"};I)V").arguments shouldBe listOf(string, int)
+            }
+
+            it ("returns void") {
+                MethodDescriptor("()V").returns shouldBe void
+            }
+            it ("returns int") {
+                MethodDescriptor("()I").returns shouldBe int
+            }
+            it ("returns string") {
+                MethodDescriptor("()L${"java/lang/String"};").returns shouldBe string
+            }
+        }
     }
 
     val void = TypeDescriptor("V")
     val int = TypeDescriptor("I")
+    val intArray = TypeDescriptor("[I")
     val string = TypeDescriptor("L${"java/lang/String"};")
+    val stringArray = TypeDescriptor("[L${"java/lang/String"};")
 }

@@ -108,7 +108,7 @@ class ReflectionMappingContainer private constructor(
                     ClassRef.named(StringRef.param(1)))
                 addClass(MethodReference(clazz, "forName", "(L${string.name};)L${clazz.name};"),
                     ClassRef.named(StringRef.param(0)))
-                addClass(MethodReference(clazz, "forName", "(L${string.name};BL${classLoader.name};)L${clazz.name};"),
+                addClass(MethodReference(clazz, "forName", "(L${string.name};ZL${classLoader.name};)L${clazz.name};"),
                     ClassRef.named(StringRef.param(0)))
 
                 addField(MethodReference(clazz, "getField", "(L${string.name};)L${field.name};"),
