@@ -63,14 +63,28 @@ internal val ReflectionMappingContainer.fields get() = reflectionMappingFields()
 internal lateinit var reflectionMappingRefFields: ReflectionMappingContainer.() -> SetMultimap<FieldReference, MemberRef>
 internal val ReflectionMappingContainer.refFields get() = reflectionMappingRefFields()
 
-/*
-internal lateinit var newTypeParameter: (String, IntRange, TypeParameterIndices) -> TypeParameter
-internal fun TypeParameter(signature: String, range: IntRange, parsed: TypeParameterIndices) =
-    newTypeParameter(signature, range, parsed)
-*/
+internal lateinit var newTypeDescriptor: (String) -> TypeDescriptor
+@Suppress("FunctionName")
+internal fun newTypeDescriptorInternal(signature: String) = newTypeDescriptor(signature)
+
+internal lateinit var newSimpleTypeSignature: (String, Int) -> TypeSignature
+@Suppress("FunctionName")
+internal fun SimpleTypeSignature(signature: String, dimensions: Int) = newSimpleTypeSignature(signature, dimensions)
+
+internal lateinit var classBuilderBuildInternal: (TypeSignature.ClassBuilder, String?, Int) -> TypeSignature
+internal fun TypeSignature.ClassBuilder.buildInternal(signature: String?, dimensions: Int) =
+    classBuilderBuildInternal(this, signature, dimensions)
+
+internal lateinit var methodSignatureBuilderBuildInternal: (MethodSignature.Builder, String?) -> MethodSignature
+internal fun MethodSignature.Builder.buildInternal(signature: String?) =
+    methodSignatureBuilderBuildInternal(this, signature)
+
+internal lateinit var classSignatureBuilderBuildInternal: (ClassSignature.Builder, String?) -> ClassSignature
+internal fun ClassSignature.Builder.buildInternal(signature: String?) =
+    classSignatureBuilderBuildInternal(this, signature)
 
 // initialize non-order-dependent classes 
 @Suppress("ObjectPropertyName", "unused")
 private val _init: Unit = run {
-    //TypeParameter("I:")
+    TypeSignature.VOID
 }

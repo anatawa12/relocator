@@ -18,7 +18,9 @@ dependencies {
     ksp(project(":builder-builder"))
     compileOnly(project(":builder-builder-lib"))
 
+    implementation(platform(kotlin("bom")))
     implementation(kotlin("stdlib"))
+    implementation(kotlin("annotations-jvm"))
     implementation("org.ow2.asm:asm:9.2")
     implementation("com.google.guava:guava:31.0.1-jre")
     implementation("org.jetbrains:annotations:23.0.0")
