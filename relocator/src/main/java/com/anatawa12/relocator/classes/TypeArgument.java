@@ -30,6 +30,8 @@ public final class TypeArgument {
     public static @NotNull TypeArgument of(final @NotNull TypeSignature type, final @NotNull TypeVariant variant) {
         Objects.requireNonNull(type, "type must not null");
         Objects.requireNonNull(variant, "variant must not null");
+        if (type.getKind() == TypeSignature.Kind.Primitive)
+            throw new IllegalArgumentException("primitive is not allowed for type");
         return new TypeArgument(type, variant);
     }
 }

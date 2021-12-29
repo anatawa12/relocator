@@ -121,7 +121,7 @@ public final class ClassSignature {
 
         private @NotNull ClassSignature buildInternal(final @Nullable String signature) {
             if (superClass == null)
-                throw new IllegalStateException("return type is not specified");
+                throw new IllegalStateException("super class is not specified");
             building = false;
 
             typeParameters.trimToSize();

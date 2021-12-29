@@ -9,10 +9,14 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+
+import static java.util.Collections.emptyList;
+import static java.util.Collections.singletonList;
 
 @SuppressWarnings("StaticInitializerReferencesSubClass")
 public abstract class TypeSignature {
@@ -63,6 +67,18 @@ public abstract class TypeSignature {
     public static @NotNull TypeSignature parse(@NotNull String signature) {
         Objects.requireNonNull(signature, "signature must not null");
         return DescriptorSignatures.parseTypeSignature(signature, TypeKind.Voidable);
+    }
+
+    public static @NotNull TypeSignature argumentOf(@NotNull String name) {
+        Objects.requireNonNull(name, "name must not null");
+        DescriptorSignatures.parseSimpleName(name, "type argument name");
+        return new Simple('T' + name + ';', 0);
+    }
+
+    public static @NotNull TypeSignature classOf(@NotNull String internalName) {
+        Objects.requireNonNull(internalName, "internalName must not null");
+        DescriptorSignatures.parseClassInternalName(internalName);
+        return new ForClass(singletonList(new ForClass.Element(internalName, emptyList())), null, 0);
     }
 
     public final int getArrayDimensions() {
@@ -165,6 +181,10 @@ public abstract class TypeSignature {
             return addTypeArg(TypeArgument.of(type, variant));
         }
 
+        public @NotNull TypeSignature build() {
+            return buildInternal(null, 0);
+        }
+
         public @NotNull TypeSignature build(int dimensions) {
             return buildInternal(null, dimensions);
         }
@@ -242,14 +262,14 @@ public abstract class TypeSignature {
             StringBuilder builder = new StringBuilder(dimension + signature.length());
             for (int i = 0; i < dimension; i++) builder.append('[');
             builder.append(signature);
-            return new Simple(builder.toString(), dimension + dimension);
+            return new Simple(builder.toString(), getArrayDimensions() + dimension);
         }
     }
 
     private static final class ForClass extends TypeSignature {
-        private final @NotNull ArrayList<@NotNull Element> elements;
+        private final @NotNull List<@NotNull Element> elements;
 
-        private ForClass(final @NotNull ArrayList<@NotNull Element> elements, final @Nullable String signature, int dimensions) {
+        private ForClass(final @NotNull List<@NotNull Element> elements, final @Nullable String signature, int dimensions) {
             super(dimensions);
             this.elements = elements;
             this.signature = signature;
@@ -333,7 +353,7 @@ public abstract class TypeSignature {
 
         @Override
         public @NotNull Kind getKind() {
-            return Kind.Class;
+            return getArrayDimensions() != 0 ? Kind.Array : Kind.Class;
         }
 
         final static class Element {

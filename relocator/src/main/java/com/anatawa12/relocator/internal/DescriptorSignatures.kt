@@ -105,6 +105,7 @@ internal object DescriptorSignatures {
     private fun parseIdentifier(cursor: Cursor) {
         cursor.require(cursor.getAndNext() !in blockedChars, "empty identifier")
         while (true) {
+            if (cursor.isEnd()) return
             if (cursor.getAndNext() in blockedChars) {
                 return cursor.movePrev()
             }
@@ -120,6 +121,7 @@ internal object DescriptorSignatures {
         if (c == '/') cursor.error("slash at the first")
         cursor.require(c !in blockedChars, "empty identifier")
         while (true) {
+            if (cursor.isEnd()) return
             c = cursor.getAndNext()
             if (c == '/') {
                 c = cursor.getAndNext()
@@ -153,7 +155,8 @@ internal object DescriptorSignatures {
         parseIdentifier(cursor)
         val builder = TypeParameter.Builder(cursor.slice(idBegin))
         cursor.requireChar(':')
-        builder.classBound(if (cursor.get() == ':') null else parseTypeSignature(cursor, TypeKind.RefOnly))
+        if (cursor.get() != ':')
+            builder.classBound(parseTypeSignature(cursor, TypeKind.RefOnly))
 
         while (cursor.tryGet() == ':'.code) {
             cursor.getAndNext()
@@ -174,7 +177,7 @@ internal object DescriptorSignatures {
         val builder = ClassSignature.Builder()
         tryParseParameters(cursor, builder, ClassSignature.Builder::addTypeParam)
         builder.superClass(parseTypeSignature(cursor, TypeKind.ClassOnly))
-        while (cursor.tryGetAndNext() != -1)
+        while (cursor.tryGet() != -1)
             builder.addInterface(parseTypeSignature(cursor, TypeKind.ClassOnly))
         return builder.buildInternal(cursor.valueOrNull(begin))
     }
