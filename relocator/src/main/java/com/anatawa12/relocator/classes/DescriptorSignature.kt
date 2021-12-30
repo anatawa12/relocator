@@ -90,7 +90,7 @@ class TypeDescriptor {
 
     val arrayDimensions get() = descriptor.indexOfFirst { it != '[' }
 
-    val elementType: TypeDescriptor get() {
+    val arrayComponent: TypeDescriptor get() {
         check(kind == Kind.Array) { "this type is not array type: $descriptor" }
         return TypeDescriptor(descriptor.substring(arrayDimensions), 0)
     }
@@ -105,6 +105,14 @@ class TypeDescriptor {
         Kind.Class -> ClassReference(descriptor.substring(1, descriptor.length - 1))
         Kind.Array -> ClassReference(descriptor)
         else -> null
+    }
+
+    fun array(arrayDimensions: Int): TypeDescriptor {
+        if (arrayDimensions == 0) return this
+        return TypeDescriptor(buildString(descriptor.length + arrayDimensions) {
+            repeat(arrayDimensions) { append('[') }
+            append(descriptor)
+        }, 0)
     }
 
     private object Init {

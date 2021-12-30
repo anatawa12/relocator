@@ -9,7 +9,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -84,6 +83,8 @@ public abstract class TypeSignature {
     public final int getArrayDimensions() {
         return dimensions;
     }
+
+    public abstract @NotNull TypeSignature getArrayComponent();
 
     public @NotNull String getRootClassName() {
         throw new IllegalStateException("this is not signature of class");
@@ -181,6 +182,11 @@ public abstract class TypeSignature {
             return addTypeArg(TypeArgument.of(type, variant));
         }
 
+        public @NotNull ClassBuilder addTypeArgument(@NotNull TypeArgument typeArgument) {
+            Objects.requireNonNull(typeArgument, "typeArgument must not null");
+            return addTypeArg(typeArgument);
+        }
+
         public @NotNull TypeSignature build() {
             return buildInternal(null, 0);
         }
@@ -229,8 +235,14 @@ public abstract class TypeSignature {
         }
 
         @Override
+        public @NotNull TypeSignature getArrayComponent() {
+            throw new IllegalStateException("this is not array type");
+        }
+
+        @Override
         public @NotNull TypeSignature array(int dimension) {
             if (dimension == 0) return this;
+            if (dimension < 0) throw new IllegalArgumentException("dimension is negative");
             StringBuilder builder = new StringBuilder(dimension + 1);
             for (int i = 0; i < dimension; i++) builder.append('[');
             builder.append(signature);
@@ -257,8 +269,16 @@ public abstract class TypeSignature {
         }
 
         @Override
+        public @NotNull TypeSignature getArrayComponent() {
+            if (getArrayDimensions() == 0) throw new IllegalStateException("this is not array type");
+            // can be primitive so I need to parse the type
+            return parse(signature.substring(getArrayDimensions()));
+        }
+
+        @Override
         public @NotNull TypeSignature array(int dimension) {
             if (dimension == 0) return this;
+            if (dimension < 0) throw new IllegalArgumentException("dimension is negative");
             StringBuilder builder = new StringBuilder(dimension + signature.length());
             for (int i = 0; i < dimension; i++) builder.append('[');
             builder.append(signature);
@@ -347,7 +367,14 @@ public abstract class TypeSignature {
         }
 
         @Override
+        public @NotNull TypeSignature getArrayComponent() {
+            if (getArrayDimensions() == 0) throw new IllegalStateException("this is not array");
+            return new ForClass(elements, null, 0);
+        }
+
+        @Override
         public @NotNull TypeSignature array(int dimension) {
+            if (dimension < 0) throw new IllegalArgumentException("dimension is negative");
             return new ForClass(elements, null, dimension);
         }
 

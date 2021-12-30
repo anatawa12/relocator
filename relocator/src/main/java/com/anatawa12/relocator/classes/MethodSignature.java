@@ -15,17 +15,17 @@ public final class MethodSignature {
     @ReadOnly
     private final @NotNull List<@NotNull TypeParameter> typeParameters;
     @ReadOnly
-    private final @NotNull List<@NotNull TypeSignature> valueParameters;
+    private final @NotNull List<? extends @NotNull TypeSignature> valueParameters;
     private final @NotNull TypeSignature returns;
     @ReadOnly
-    private final @NotNull List<@NotNull TypeSignature> throwsTypes;
+    private final @NotNull List<? extends @NotNull TypeSignature> throwsTypes;
     private @Nullable String signature;
 
     private MethodSignature(
             final @ReadOnly @NotNull List<@NotNull TypeParameter> typeParameters,
-            final @ReadOnly @NotNull List<@NotNull TypeSignature> valueParameters,
+            final @ReadOnly @NotNull List<? extends @NotNull TypeSignature> valueParameters,
             final @NotNull TypeSignature returns,
-            final @ReadOnly @NotNull List<@NotNull TypeSignature> throwsTypes,
+            final @ReadOnly @NotNull List<? extends @NotNull TypeSignature> throwsTypes,
             final @Nullable String signature) {
         this.typeParameters = typeParameters;
         this.valueParameters = valueParameters;
@@ -154,6 +154,7 @@ public final class MethodSignature {
 
         static {
             InternalAccessorKt.methodSignatureBuilderBuildInternal = Builder::buildInternal;
+            InternalAccessorKt.newMethodSignature = MethodSignature::new;
         }
     }
 }

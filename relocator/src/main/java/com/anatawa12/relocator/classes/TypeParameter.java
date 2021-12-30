@@ -136,5 +136,9 @@ public final class TypeParameter {
                 return new TypeParameter(name, classBound, Collections.emptyList());
             }
         }
+
+        static {
+            InternalAccessorKt.newTypeParameter = TypeParameter::new;
+        }
     }
 }

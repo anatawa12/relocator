@@ -1045,7 +1045,7 @@ private fun newReference(type: Type): ClassReference? {
 
 private fun newReference(type: TypeDescriptor): ClassReference? {
     return when (type.descriptor[0]) {
-        '[' -> newReference(type.elementType)
+        '[' -> newReference(type.arrayComponent)
         'L' -> ClassReference(type.internalName)
         else -> null
     }

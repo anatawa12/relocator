@@ -67,3 +67,21 @@ internal inline fun <reified T> Array<T>.takeIfNonZero(count: Int) = if (count =
 internal operator fun KeyValuePair.component1() = key
 internal operator fun KeyValuePair.component2() = value
 internal fun singleRange(value: Int): IntRange = value..value
+
+fun <S: Any> mapList(types: List<S>, map: (S) -> S?): ArrayList<S>? {
+    val iterator = types.listIterator()
+    while (iterator.hasNext()) {
+        val type = iterator.next()
+        val mapped = map(type) ?: continue
+
+        val list = ArrayList<S>(types.size)
+        list.addAll(types.subList(0, iterator.previousIndex()))
+        list.add(mapped)
+        while (iterator.hasNext()) {
+            val type1 = iterator.next()
+            list.add(map(type1) ?: type1)
+        }
+        return list
+    }
+    return null
+}

@@ -9,6 +9,7 @@ import com.anatawa12.relocator.reflect.ClassRef as PublicClassRef
 import com.anatawa12.relocator.reflect.MethodTypeRef as PublicMethodTypeRef
 import com.anatawa12.relocator.reflect.StringRef as PublicStringRef
 
+// @formatter:off
 internal lateinit var ownerAccessorCodeLabel: OwnerAccessor<CodeLabel, Insn>
 internal val CodeLabel.target get() = ownerAccessorCodeLabel.get(this)
 
@@ -83,9 +84,24 @@ internal lateinit var classSignatureBuilderBuildInternal: (ClassSignature.Builde
 internal fun ClassSignature.Builder.buildInternal(signature: String?) =
     classSignatureBuilderBuildInternal(this, signature)
 
+internal lateinit var newMethodSignature: (List<TypeParameter>, List<TypeSignature>, TypeSignature, List<TypeSignature>, String?) -> MethodSignature
+internal fun newMethodSignatureInternal(typeParameters: List<TypeParameter>, valueParameters: List<TypeSignature>, returns: TypeSignature, throwsTypes: List<TypeSignature>, signature: String?) =
+    newMethodSignature(typeParameters, valueParameters, returns, throwsTypes, signature)
+
+internal lateinit var newClassSignature: (List<TypeParameter>, TypeSignature, List<TypeSignature>, String?) -> ClassSignature
+internal fun newClassSignatureInternal(typeParameters: List<TypeParameter>, superClass: TypeSignature, superInterfaces: List<TypeSignature>, signature: String?) =
+    newClassSignature(typeParameters, superClass, superInterfaces, signature)
+
+internal lateinit var newTypeParameter: (String, TypeSignature?, List<TypeSignature?>) -> TypeParameter
+internal fun newTypeParameterInternal(name: String, classBound: TypeSignature?, interfaceBounds: List<TypeSignature?>) =
+    newTypeParameter(name, classBound, interfaceBounds)
+
 // initialize non-order-dependent classes 
 @Suppress("ObjectPropertyName", "unused")
 private val _init: Unit = run {
     TypeSignature.VOID
     TypeDescriptor("I")
+    MethodSignature.Builder()
+    ClassSignature.Builder()
+    TypeParameter.Builder("T")
 }

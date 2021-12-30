@@ -53,7 +53,7 @@ class AnnotationString(val value: String) : AnnotationValue() {
 class AnnotationEnum(var owner: ClassReference, val value: String) : AnnotationValue() {
     override fun toString(): String = "enum $owner.$value"
 }
-class AnnotationClass(val descriptor: TypeDescriptor) : AnnotationValue() {
+class AnnotationClass(var descriptor: TypeDescriptor) : AnnotationValue() {
     constructor(descriptor: String) : this(TypeDescriptor(descriptor))
     override fun toString(): String = "class $descriptor"
 }

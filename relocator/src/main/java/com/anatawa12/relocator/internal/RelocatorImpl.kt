@@ -10,6 +10,8 @@ import com.anatawa12.relocator.internal.BasicDiagnostics.UNRESOLVABLE_FIELD
 import com.anatawa12.relocator.internal.BasicDiagnostics.UNRESOLVABLE_METHOD
 import com.anatawa12.relocator.reference.*
 import com.anatawa12.relocator.reference.withLocation
+import com.anatawa12.relocator.relocation.ClassRelocator
+import com.anatawa12.relocator.relocation.RelocationMapping
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import org.objectweb.asm.Opcodes.ACC_NATIVE
@@ -25,6 +27,13 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
     val diagnosticHandler = InternalDiagnosticHandlerWrapper(relocator.diagnosticHandler, relocator.suppressions)
     private val collectors = listOf<ReferenceCollector>(
         DefaultCollector,
+    )
+    lateinit var classes: List<ClassFile>
+    val mapping: RelocationMapping = RelocationMapping()
+    // TODO use ClassRelocatorProvider by Relocator
+    val relocators = listOf<ClassRelocator>(
+        SimpleClassRelocator(mapping),
+        KotlinMetadataRemovingRelocator(mapping),
     )
 
     suspend fun run(): Unit = coroutineScope {
@@ -62,6 +71,12 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
 
         checkNoErrors()
 
+        // third step: relocation
+
+        listUpClasses()
+
+        relocateClasses()
+
         // forth step: make a jar.
         // make a jar with relocation
 
@@ -81,6 +96,37 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
         )
         for (collector in collectors) {
             start { collector.apply { context.collect() } }
+        }
+    }
+
+    private suspend fun listUpClasses() = TaskQueue {
+        classes = (embeds.classes + roots.classes).filter { it.included }
+        for (classFile in classes) {
+            start {
+                classFile.fields.removeIf { !it.included }
+                classFile.methods.removeIf { !it.included }
+            }
+        }
+    }
+
+    private suspend fun relocateClasses() = TaskQueue {
+        for (classFile in classes) {
+            start {
+                for (relocator in relocators)
+                    relocator.relocate(classFile)
+                relocate(classFile.fields, ClassRelocator::relocate)
+                relocate(classFile.methods, ClassRelocator::relocate)
+                relocate(classFile.recordFields, ClassRelocator::relocate)
+            }
+        }
+    }
+
+    private fun <T> TaskQueue.relocate(list: List<T>, relocate: ClassRelocator.(T) -> Unit) {
+        for (element in list) {
+            start {
+                for (relocator in relocators)
+                    relocator.relocate(element)
+            }
         }
     }
 }
@@ -147,7 +193,7 @@ private class ReferencesCollectContextImpl(
                     val methods = classpath.findMethods(reference)
                     if (methods.isEmpty())
                         return@start addDiagnostic(UNRESOLVABLE_METHOD(reference.owner.name,
-                            reference.name, reference.descriptor, reference.location ?: Location.None))
+                            reference.name, reference.descriptor.descriptor, reference.location ?: Location.None))
                     methods.forEach { start { collectReferencesOf(it) } }
                 }
                 is TypelessMethodReference -> {

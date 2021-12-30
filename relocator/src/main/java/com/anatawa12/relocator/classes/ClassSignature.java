@@ -16,13 +16,13 @@ public final class ClassSignature {
     private final @NotNull List<@NotNull TypeParameter> typeParameters;
     private final @NotNull TypeSignature superClass;
     @ReadOnly
-    private final @NotNull List<@NotNull TypeSignature> superInterfaces;
+    private final @NotNull List<? extends @NotNull TypeSignature> superInterfaces;
     private @Nullable String signature;
 
     private ClassSignature(
             final @ReadOnly @NotNull List<@NotNull TypeParameter> typeParameters,
             final @NotNull TypeSignature superClass,
-            final @ReadOnly @NotNull List<@NotNull TypeSignature> superInterfaces,
+            final @ReadOnly @NotNull List<? extends @NotNull TypeSignature> superInterfaces,
             final @Nullable String signature) {
         this.typeParameters = typeParameters;
         this.superClass = superClass;
@@ -132,6 +132,7 @@ public final class ClassSignature {
 
         static {
             InternalAccessorKt.classSignatureBuilderBuildInternal = Builder::buildInternal;
+            InternalAccessorKt.newClassSignature = ClassSignature::new;
         }
     }
 }
