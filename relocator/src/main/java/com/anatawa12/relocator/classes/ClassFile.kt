@@ -23,14 +23,14 @@ class ClassFile private constructor(
     @StaticBuilderArg var version: Int,
     @StaticBuilderArg var access: Int,
     @StaticBuilderArg var name: String,
-    var signature: String?,
+    var signature: ClassSignature?,
     var superName: ClassReference?,
     interfaces: List<ClassReference>,
     var sourceFile: String?,
     var sourceDebug: String?,
     var outerClass: ClassReference?,
     var outerMethod: String?,
-    var outerMethodDesc: String?,
+    var outerMethodDesc: MethodDescriptor?,
     visibleAnnotations: List<ClassAnnotation>,
     invisibleAnnotations: List<ClassAnnotation>,
     visibleTypeAnnotations: List<ClassTypeAnnotation>,
@@ -58,11 +58,11 @@ class ClassFile private constructor(
     val externalReferences = mutableSetOf<Reference>()
     val allReferences get() = references + externalReferences
 
-    val methods: MutableList<ClassMethod> = OwnerBasedList(this, ownerAccessorClassMethod)
+    val methods: MutableList<ClassMethod> = OwnerBasedList(this, ::ownerAccessorClassMethod)
         .apply { addAll(methods) }
-    val fields: MutableList<ClassField> = OwnerBasedList(this, ownerAccessorClassField)
+    val fields: MutableList<ClassField> = OwnerBasedList(this, ::ownerAccessorClassField)
         .apply { addAll(fields) }
-    val recordFields: MutableList<ClassRecordField> = OwnerBasedList(this, ownerAccessorClassRecordField)
+    val recordFields: MutableList<ClassRecordField> = OwnerBasedList(this, ::ownerAccessorClassRecordField)
         .apply { addAll(recordFields) }
 
     private var attrNames = emptyList<String>()
@@ -99,14 +99,14 @@ class ClassFile private constructor(
             version: Int,
             access: Int,
             name: String,
-            signature: String?,
+            signature: ClassSignature?,
             superName: ClassReference?,
             interfaces: List<ClassReference>,
             sourceFile: String?,
             sourceDebug: String?,
             outerClass: ClassReference?,
             outerMethod: String?,
-            outerMethodDesc: String?,
+            outerMethodDesc: MethodDescriptor?,
             visibleAnnotations: List<ClassAnnotation>,
             invisibleAnnotations: List<ClassAnnotation>,
             visibleTypeAnnotations: List<ClassTypeAnnotation>,
@@ -162,20 +162,23 @@ fun ClassFile.findMethods(ref: PartialMethodReference): List<ClassMethod> =
     this@findMethods.findMethods(ref.name, ref.descriptor)
 fun ClassFile.findMethods(ref: TypelessMethodReference): List<ClassMethod> =
     this@findMethods.findMethods(ref.name)
-fun ClassFile.findMethod(name: String, desc: String): ClassMethod? =
+fun ClassFile.findMethod(name: String, desc: MethodDescriptor): ClassMethod? =
     methods.firstOrNull { it.name == name && it.descriptor == desc }
-fun ClassFile.findMethods(name: String, desc: String): List<ClassMethod> =
-    methods.filter { it.name == name && it.descriptor.startsWith(desc) }
+fun ClassFile.findMethods(name: String, desc: PartialMethodDescriptor): List<ClassMethod> =
+    methods.filter { it.name == name && it.descriptor.matches(desc) }
+
 fun ClassFile.findMethods(name: String): List<ClassMethod> =
     methods.filter { it.name == name }
 fun ClassFile.findField(ref: FieldReference): ClassField? =
     findField(ref.name, ref.descriptor)
-fun ClassFile.findField(name: String, desc: String): ClassField? =
+fun ClassFile.findField(name: String, desc: TypeDescriptor): ClassField? =
     fields.firstOrNull { it.name == name && it.descriptor == desc }
 fun ClassFile.findFields(ref: PartialFieldReference): List<ClassField> =
     fields.filter { it.name == ref.name }
-fun ClassFile.findRecordField(name: String, desc: String): ClassRecordField? =
+fun ClassFile.findRecordField(name: String, desc: TypeDescriptor): ClassRecordField? =
     recordFields.firstOrNull { it.name == name && it.descriptor == desc }
+
+fun MethodDescriptor.matches(desc: PartialMethodDescriptor): Boolean = descriptor.startsWith(desc.descriptor)
 
 class ClassInnerClass(
     var access: Int,
@@ -191,8 +194,8 @@ class ClassInnerClass(
 class ClassMethod private constructor(
     @StaticBuilderArg var access: Int,
     @StaticBuilderArg var name: String,
-    @StaticBuilderArg var descriptor: String,
-    var signature: String?,
+    @StaticBuilderArg var descriptor: MethodDescriptor,
+    var signature: MethodSignature?,
     exceptions: List<ClassReference>,
     parameters: List<ClassParameter>,
     visibleAnnotations: List<ClassAnnotation>,
@@ -234,12 +237,12 @@ class ClassMethod private constructor(
             env.addDiagnostic(UNSUPPORTED_ATTRIBUTE(attrName, Location.Method(this)))
     }
 
-    class Builder(access: Int, name: String, descriptor: String) : ClassMethodBuilder(access, name, descriptor) {
+    class Builder(access: Int, name: String, descriptor: MethodDescriptor) : ClassMethodBuilder(access, name, descriptor) {
         override fun buildInternal(
             access: Int,
             name: String,
-            descriptor: String,
-            signature: String?,
+            descriptor: MethodDescriptor,
+            signature: MethodSignature?,
             exceptions: List<ClassReference>,
             parameters: List<ClassParameter>,
             visibleAnnotations: List<ClassAnnotation>,
@@ -285,8 +288,8 @@ class ClassMethod private constructor(
 class ClassField private constructor(
     @StaticBuilderArg var access: Int,
     @StaticBuilderArg var name: String,
-    @StaticBuilderArg var descriptor: String,
-    var signature: String?,
+    @StaticBuilderArg var descriptor: TypeDescriptor,
+    var signature: TypeSignature?,
     var value: Constant?,
     visibleAnnotations: List<ClassAnnotation>,
     invisibleAnnotations: List<ClassAnnotation>,
@@ -316,12 +319,13 @@ class ClassField private constructor(
             env.addDiagnostic(UNSUPPORTED_ATTRIBUTE(attrName, Location.Field(this)))
     }
 
-    class Builder(access: Int, name: String, descriptor: String) : ClassFieldBuilder(access, name, descriptor) {
+    class Builder(access: Int, name: String, descriptor: TypeDescriptor) : ClassFieldBuilder(access, name, descriptor) {
+        // todo: deny non-primitive signature
         override fun buildInternal(
             access: Int,
             name: String,
-            descriptor: String,
-            signature: String?,
+            descriptor: TypeDescriptor,
+            signature: TypeSignature?,
             value: Constant?,
             visibleAnnotations: List<ClassAnnotation>,
             invisibleAnnotations: List<ClassAnnotation>,
@@ -356,8 +360,8 @@ class ClassField private constructor(
 @BuildBuilder
 class ClassRecordField(
     @StaticBuilderArg var name: String,
-    @StaticBuilderArg var descriptor: String,
-    var signature: String?,
+    @StaticBuilderArg var descriptor: TypeDescriptor,
+    var signature: TypeSignature?,
     visibleAnnotations: List<ClassAnnotation>,
     invisibleAnnotations: List<ClassAnnotation>,
     visibleTypeAnnotations: List<ClassTypeAnnotation>,
@@ -386,11 +390,12 @@ class ClassRecordField(
             env.addDiagnostic(UNSUPPORTED_ATTRIBUTE(attrName, Location.RecordField(this)))
     }
 
-    class Builder(name: String, descriptor: String) : ClassRecordFieldBuilder(name, descriptor) {
+    class Builder(name: String, descriptor: TypeDescriptor) : ClassRecordFieldBuilder(name, descriptor) {
+        // todo: deny non-primitive signature
         override fun buildInternal(
             name: String,
-            descriptor: String,
-            signature: String?,
+            descriptor: TypeDescriptor,
+            signature: TypeSignature?,
             visibleAnnotations: List<ClassAnnotation>,
             invisibleAnnotations: List<ClassAnnotation>,
             visibleTypeAnnotations: List<ClassTypeAnnotation>,

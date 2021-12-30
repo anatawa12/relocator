@@ -3,7 +3,15 @@ package com.anatawa12.relocator.classes
 import com.anatawa12.relocator.internal.*
 import com.anatawa12.relocator.internal.TypeKind
 
-class MethodDescriptor(val descriptor: String) {
+abstract class AnyMethodDescriptor(val descriptor: String) {
+    init {
+        check(javaClass == MethodDescriptor::class.java || javaClass == PartialMethodDescriptor::class.java) {
+            "it's not allowed to extend AnyMethodDescriptor"
+        }
+    }
+}
+
+class MethodDescriptor(descriptor: String) : AnyMethodDescriptor(descriptor) {
     constructor(returns: TypeDescriptor, vararg args: TypeDescriptor) :
             this(returns, args.asList())
     constructor(returns: TypeDescriptor, args: List<TypeDescriptor>) :
@@ -34,8 +42,34 @@ class MethodDescriptor(val descriptor: String) {
     override fun toString(): String = descriptor
 }
 
+class PartialMethodDescriptor(descriptor: String) : AnyMethodDescriptor(descriptor) {
+    constructor(vararg args: TypeDescriptor) : this(args.asList())
+    constructor(args: List<TypeDescriptor>) : this(args.joinToString(prefix = "(", postfix = ")", separator = "") { it.descriptor })
+
+    private val argIndices = DescriptorSignatures.parseMethodDesc(descriptor, false)
+    private val _arguments = ArgsList()
+    val arguments: List<TypeDescriptor> get() = _arguments
+
+    private inner class ArgsList() : AbstractList<TypeDescriptor>() {
+        override val size: Int get() = this@PartialMethodDescriptor.argIndices.size
+
+        override fun get(index: Int): TypeDescriptor {
+            val indices = this@PartialMethodDescriptor.argIndices
+            if (index !in indices.indices)
+                throw IndexOutOfBoundsException("index: $index, count: ${indices.size}")
+            return newTypeDescriptorInternal(descriptor.substring(if (index == 0) 1 else indices[index - 1], indices[index]))
+        }
+    }
+
+    override fun equals(other: Any?): Boolean =
+        this === other || javaClass == other?.javaClass && descriptor == (other as PartialMethodDescriptor).descriptor
+    override fun hashCode(): Int = descriptor.hashCode()
+    override fun toString(): String = descriptor
+}
+
 class TypeDescriptor {
     val descriptor: String
+    // TODO: add ofClass and primitive constants with converting to java
 
     constructor(descriptor: String) {
         DescriptorSignatures.parseTypeDesc(descriptor, TypeKind.Voidable)
@@ -45,6 +79,17 @@ class TypeDescriptor {
 
     private constructor(descriptor: String, @Suppress("UNUSED_PARAMETER") internalMarker: Int) {
         this.descriptor = descriptor
+    }
+
+    val elementType: TypeDescriptor get() {
+        check(descriptor[0] == '[') { "this type is not array type: $descriptor" }
+        return TypeDescriptor(descriptor.substring(descriptor.indexOfFirst { it != '[' }), 0)
+    }
+
+    val internalName: String get() = when (descriptor[0]) {
+        'L' -> descriptor.substring(1, descriptor.length - 1)
+        '[' -> descriptor
+        else -> error("primitive type doesn't have internal name: $descriptor")
     }
 
     private object Init {

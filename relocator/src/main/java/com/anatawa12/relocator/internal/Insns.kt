@@ -484,7 +484,12 @@ internal object Insns {
             end: Label,
             index: Int
         ) {
-            localVars += LocalVariable(name, descriptor, signature, mapLabel(start), mapLabel(end), index)
+            localVars += LocalVariable(name,
+                TypeDescriptor(descriptor),
+                signature?.let(TypeSignature::parse),
+                mapLabel(start),
+                mapLabel(end),
+                index)
         }
 
         override fun visitLocalVariableAnnotation(
@@ -542,9 +547,9 @@ internal object Insns {
         Type::class -> {
             val type = (main as Type)
             if (type.sort == Type.METHOD)
-                ConstantMethodType(type.descriptor)
+                ConstantMethodType(MethodDescriptor(type.descriptor))
             else
-                ConstantClass(type.descriptor)
+                ConstantClass(TypeDescriptor(type.descriptor))
         }
         Handle::class -> newConstantHandle(main as Handle, location)
         org.objectweb.asm.ConstantDynamic::class -> newConstantDynamic(main as org.objectweb.asm.ConstantDynamic, location)
@@ -581,7 +586,7 @@ internal object Insns {
 
     private fun newConstantDynamic(constant: org.objectweb.asm.ConstantDynamic, location: Location?): ConstantDynamic = ConstantDynamic(
         constant.name,
-        constant.descriptor,
+        MethodDescriptor(constant.descriptor),
         newConstantHandle(constant.bootstrapMethod, location),
         List(constant.bootstrapMethodArgumentCount) {
             newConstant(constant.getBootstrapMethodArgument(it), location)
@@ -596,7 +601,7 @@ internal object Insns {
         location: Location?,
     ): ConstantDynamic = ConstantDynamic(
         name,
-        descriptor,
+        MethodDescriptor(descriptor),
         newConstantHandle(bootstrapMethod, location),
         args.map { newConstant(it, location) },
     )

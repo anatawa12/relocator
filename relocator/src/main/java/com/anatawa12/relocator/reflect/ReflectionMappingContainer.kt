@@ -19,14 +19,14 @@ class ReflectionMappingContainer private constructor(
     constructor() : this(Default.default.methods.toMutableMap(), Default.default.fields.toMutableMap())
 
     fun addClass(reference: MethodReference, classRef: ClassRef) {
-        require (Type.getReturnType(reference.descriptor).descriptor in Reflects.classTypes) { 
+        require (reference.descriptor.returns in Reflects.classTypes) { 
             "$reference will never return class instance"
         }
         methods[reference] = classRef.internal.apply { checkUsable(ParameterDescriptors(reference)) }
     }
 
     fun addField(reference: MethodReference, ownerRef: ClassRef, nameRef: StringRef, typeRef: ClassRef?) {
-        require (Type.getReturnType(reference.descriptor).descriptor in Reflects.fieldTypes) { 
+        require (reference.descriptor.returns in Reflects.fieldTypes) { 
             "$reference will never return field instance"
         }
         methods[reference] = FieldRef(ownerRef.internal, nameRef.internal, typeRef?.internal)
@@ -34,7 +34,7 @@ class ReflectionMappingContainer private constructor(
     }
 
     fun addMethod(reference: MethodReference, ownerRef: ClassRef, nameRef: StringRef, typeRef: MethodTypeRef?) {
-        require (Type.getReturnType(reference.descriptor).descriptor in Reflects.methodTypes) { 
+        require (reference.descriptor.returns in Reflects.methodTypes) { 
             "$reference will never return method instance"
         }
         methods[reference] = MethodRef(ownerRef.internal, nameRef.internal, typeRef?.internal)

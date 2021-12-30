@@ -87,4 +87,5 @@ internal fun ClassSignature.Builder.buildInternal(signature: String?) =
 @Suppress("ObjectPropertyName", "unused")
 private val _init: Unit = run {
     TypeSignature.VOID
+    TypeDescriptor("I")
 }

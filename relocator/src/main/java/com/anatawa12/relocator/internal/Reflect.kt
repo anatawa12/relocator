@@ -2,22 +2,21 @@ package com.anatawa12.relocator.internal
 
 import com.anatawa12.relocator.classes.*
 import com.anatawa12.relocator.reference.*
-import org.objectweb.asm.Type
 import com.anatawa12.relocator.reflect.StringRef as PublicStringRef
 import com.anatawa12.relocator.reflect.ClassRef as PublicClassRef
 
 class ParameterDescriptors(
-    val self: String,
-    val parameters: List<String>,
+    val self: TypeDescriptor,
+    val parameters: List<TypeDescriptor>,
 ) {
     constructor(self: MethodReference) : this(
-        "L${self.owner.name};",
-        Type.getType(self.descriptor).argumentTypes.map { it.descriptor },
+        TypeDescriptor("L${self.owner.name};"),
+        self.descriptor.arguments,
     )
 
-    constructor(self: FieldReference) : this("L${self.owner.name};", emptyList())
+    constructor(self: FieldReference) : this(TypeDescriptor("L${self.owner.name};"), emptyList())
 
-    fun require(index: Int, type: String) {
+    fun require(index: Int, type: TypeDescriptor) {
         val actual = if (index == -1) self else parameters.getOrNull(index)
         require(actual == type) {
             val name = if (index == -1) "receiver" else "$index-th parameter"
@@ -43,7 +42,7 @@ internal sealed class StringRef {
         override val data: String get() = getParamName(index)
 
         override fun checkUsable(desc: ParameterDescriptors) {
-            desc.require(index, "L${"java/lang/String"};")
+            desc.require(index, TypeDescriptor("L${"java/lang/String"};"))
         }
 
         override fun resolve(params: ParametersContainer): String? = params.get(index) as? String
@@ -105,7 +104,7 @@ internal sealed class ClassRef : MemberRef() {
 
         override fun resolve(params: ParametersContainer): ConstantClass? {
             val string = ClassReference(name.resolve(params) ?: return null).name
-            return if (string[0] == '[') ConstantClass(string) else ConstantClass("L${string};")
+            return if (string[0] == '[') ConstantClass(TypeDescriptor(string)) else ConstantClass(TypeDescriptor("L${string};"))
         }
     }
     class Descriptor(val name: StringRef) : ClassRef() {
@@ -116,7 +115,7 @@ internal sealed class ClassRef : MemberRef() {
         }
 
         override fun resolve(params: ParametersContainer): ConstantClass? {
-            return ConstantClass(name.resolve(params)?.replace('.', '/') ?: return null)
+            return ConstantClass(TypeDescriptor(name.resolve(params)?.replace('.', '/') ?: return null))
         }
     }
 
@@ -124,7 +123,7 @@ internal sealed class ClassRef : MemberRef() {
         override fun toString(): String = "ClassRef(instance=${getParamName(index)})"
 
         override fun checkUsable(desc: ParameterDescriptors) {
-            desc.require(index, "L${"java/lang/Class"};")
+            desc.require(index, TypeDescriptor("L${"java/lang/Class"};"))
         }
 
         override fun resolve(params: ParametersContainer): ConstantClass? = params.get(index) as? ConstantClass
@@ -182,9 +181,8 @@ internal sealed class MethodTypeRef {
             descriptor.checkUsable(desc)
         }
 
-        override fun resolve(params: ParametersContainer): String? {
-            return descriptor.resolve(params)
-                ?.takeIf { it.last() == ')' }
+        override fun resolve(params: ParametersContainer): PartialMethodDescriptor? {
+            return kotlin.runCatching { descriptor.resolve(params)?.let(::PartialMethodDescriptor) }.getOrNull()
         }
     }
 
@@ -195,9 +193,8 @@ internal sealed class MethodTypeRef {
             descriptor.checkUsable(desc)
         }
 
-        override fun resolve(params: ParametersContainer): String? {
-            return descriptor.resolve(params)
-                ?.takeIf { it.last() != ')' }
+        override fun resolve(params: ParametersContainer): MethodDescriptor? {
+            return kotlin.runCatching { descriptor.resolve(params)?.let(::MethodDescriptor) }.getOrNull()
         }
     }
 
@@ -205,19 +202,13 @@ internal sealed class MethodTypeRef {
         override fun toString(): String = "MethodTypeRef(params=${getParamName(paramsIndex)})"
 
         override fun checkUsable(desc: ParameterDescriptors) {
-            desc.require(paramsIndex, "[L${"java/lang/Class"};")
+            desc.require(paramsIndex, TypeDescriptor("[L${"java/lang/Class"};"))
         }
 
-        override fun resolve(params: ParametersContainer): String? {
+        override fun resolve(params: ParametersContainer): PartialMethodDescriptor? {
             val args = params.get(paramsIndex) as? List<*> ?: return null
             if (args.any { it !is ConstantClass }) return null
-            return buildString {
-                append('(')
-                @Suppress("UNCHECKED_CAST")
-                for (constantClass in args as List<ConstantClass>)
-                    append(constantClass.descriptor)
-                append(')')
-            }
+            return PartialMethodDescriptor(args.map { (it as ConstantClass).descriptor })
         }
     }
 
@@ -225,22 +216,15 @@ internal sealed class MethodTypeRef {
         override fun toString(): String = "MethodTypeRef(params=${getParamName(paramsIndex)}, return=${returns})"
 
         override fun checkUsable(desc: ParameterDescriptors) {
-            desc.require(paramsIndex, "[L${"java/lang/Class"};")
+            desc.require(paramsIndex, TypeDescriptor("[L${"java/lang/Class"};"))
             returns.checkUsable(desc)
         }
 
-        override fun resolve(params: ParametersContainer): String? {
+        override fun resolve(params: ParametersContainer): MethodDescriptor? {
             val args = params.get(paramsIndex) as? List<*> ?: return null
             if (args.any { it !is ConstantClass }) return null
             val returns = returns.resolve(params) ?: return null
-            return buildString {
-                append('(')
-                @Suppress("UNCHECKED_CAST")
-                for (constantClass in args as List<ConstantClass>)
-                    append(constantClass.descriptor)
-                append(')')
-                append(returns.descriptor)
-            }
+            return MethodDescriptor(returns.descriptor, args.map { (it as ConstantClass).descriptor })
         }
     }
 
@@ -248,15 +232,15 @@ internal sealed class MethodTypeRef {
         override fun toString(): String = "MethodTypeRef(instance=${getParamName(index)})"
 
         override fun checkUsable(desc: ParameterDescriptors) {
-            desc.require(index, "[L${"java/lang/Class"};")
+            desc.require(index, TypeDescriptor("[L${"java/lang/Class"};"))
         }
 
-        override fun resolve(params: ParametersContainer): String? =
+        override fun resolve(params: ParametersContainer): MethodDescriptor? =
             (params.get(index) as? ConstantMethodType?)?.descriptor
     }
 
     abstract fun checkUsable(desc: ParameterDescriptors)
-    abstract fun resolve(params: ParametersContainer): String?
+    abstract fun resolve(params: ParametersContainer): AnyMethodDescriptor?
 
     companion object {
         @JvmStatic
@@ -294,8 +278,8 @@ internal class FieldRef(val owner: ClassRef, val name: StringRef, val type: Clas
         val owner = owner.resolve(params) ?: return null
         val name = name.resolve(params) ?: return null
         val type = type?.resolve(params)
-        if (owner.descriptor[0] != 'L') return null
-        val ownerInternalName = owner.descriptor.substring(1, owner.descriptor.length - 1)
+        if (owner.descriptor.descriptor[0] != 'L') return null
+        val ownerInternalName = owner.descriptor.internalName
         return when {
             type == null -> PartialFieldReference(ownerInternalName, name)
             else -> FieldReference(ownerInternalName, name, type.descriptor)
@@ -314,12 +298,12 @@ internal class MethodRef(val owner: ClassRef, val name: StringRef, val type: Met
         val owner = owner.resolve(params) ?: return null
         val name = name.resolve(params) ?: return null
         val type = type?.resolve(params)
-        if (owner.descriptor[0] != 'L') return null
-        val ownerInternalName = owner.descriptor.substring(1, owner.descriptor.length - 1)
-        return when {
-            type == null -> TypelessMethodReference(ownerInternalName, name)
-            type.last() == ')' -> PartialMethodReference(ownerInternalName, name, type)
-            else -> MethodReference(ownerInternalName, name, type)
+        if (owner.descriptor.descriptor[0] != 'L') return null
+        val ownerInternalName = ClassReference(owner.descriptor.internalName)
+        return when (type) {
+            null -> TypelessMethodReference(ownerInternalName, name)
+            is PartialMethodDescriptor -> PartialMethodReference(ownerInternalName, name, type)
+            else -> MethodReference(ownerInternalName, name, type as MethodDescriptor)
         }
     }
 }
@@ -336,34 +320,34 @@ fun getParamName(index: Int): String {
 
 object Reflects {
     val classTypes = setOf(
-        "L${"java/lang/Class"};",
-        "L${"java/lang/Object"};",
-        "L${"java/io/Serializable"};", 
-        "L${"java/lang/constant/Constable"};", 
-        "L${"java/lang/invoke/TypeDescriptor"};",
-        "L${"java/lang/invoke/TypeDescriptor\$OfField"};",
-        "L${"java/lang/reflect/AnnotatedElement"};",
-        "L${"java/lang/reflect/GenericDeclaration"};",
-        "L${"java/lang/reflect/Type"};",
+        TypeDescriptor("L${"java/lang/Class"};"),
+        TypeDescriptor("L${"java/lang/Object"};"),
+        TypeDescriptor("L${"java/io/Serializable"};"), 
+        TypeDescriptor("L${"java/lang/constant/Constable"};"), 
+        TypeDescriptor("L${"java/lang/invoke/TypeDescriptor"};"),
+        TypeDescriptor("L${"java/lang/invoke/TypeDescriptor\$OfField"};"),
+        TypeDescriptor("L${"java/lang/reflect/AnnotatedElement"};"),
+        TypeDescriptor("L${"java/lang/reflect/GenericDeclaration"};"),
+        TypeDescriptor("L${"java/lang/reflect/Type"};"),
     )
 
     val fieldTypes = setOf(
-        "L${"java/lang/reflect/Field"};",
-        "L${"java/lang/reflect/AccessibleObject"};",
-        "L${"java/lang/Object"};",
-        "L${"java/lang/reflect/AnnotatedElement"};",
-        "L${"java/lang/reflect/Member"};",
+        TypeDescriptor("L${"java/lang/reflect/Field"};"),
+        TypeDescriptor("L${"java/lang/reflect/AccessibleObject"};"),
+        TypeDescriptor("L${"java/lang/Object"};"),
+        TypeDescriptor("L${"java/lang/reflect/AnnotatedElement"};"),
+        TypeDescriptor("L${"java/lang/reflect/Member"};"),
     )
 
     val methodTypes = setOf(
-        "L${"java/lang/reflect/Method"};",
-        "L${"java/lang/reflect/Constructor"};",
-        "L${"java/lang/reflect/Executable"};",
-        "L${"java/lang/reflect/AccessibleObject"};",
-        "L${"java/lang/Object"};",
-        "L${"java/lang/reflect/Executable"};",
-        "L${"java/lang/reflect/AnnotatedElement"};",
-        "L${"java/lang/reflect/GenericDeclaration"};",
-        "L${"java/lang/reflect/Member"};",
+        TypeDescriptor("L${"java/lang/reflect/Method"};"),
+        TypeDescriptor("L${"java/lang/reflect/Constructor"};"),
+        TypeDescriptor("L${"java/lang/reflect/Executable"};"),
+        TypeDescriptor("L${"java/lang/reflect/AccessibleObject"};"),
+        TypeDescriptor("L${"java/lang/Object"};"),
+        TypeDescriptor("L${"java/lang/reflect/Executable"};"),
+        TypeDescriptor("L${"java/lang/reflect/AnnotatedElement"};"),
+        TypeDescriptor("L${"java/lang/reflect/GenericDeclaration"};"),
+        TypeDescriptor("L${"java/lang/reflect/Member"};"),
     )
 }

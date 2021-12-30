@@ -49,11 +49,6 @@ public abstract class TypeSignature {
 
     public abstract @NotNull Kind getKind();
 
-    static {
-        InternalAccessorKt.newSimpleTypeSignature = Simple::new;
-        InternalAccessorKt.classBuilderBuildInternal = ClassBuilder::buildInternal;
-    }
-
     public static final @NotNull TypeSignature VOID = new Primitive("V");
     public static final @NotNull TypeSignature BYTE = new Primitive("B");
     public static final @NotNull TypeSignature CHAR = new Primitive("C");
@@ -63,6 +58,11 @@ public abstract class TypeSignature {
     public static final @NotNull TypeSignature LONG = new Primitive("J");
     public static final @NotNull TypeSignature SHORT = new Primitive("S");
     public static final @NotNull TypeSignature BOOLEAN = new Primitive("Z");
+
+    static {
+        InternalAccessorKt.newSimpleTypeSignature = Simple::new;
+        InternalAccessorKt.classBuilderBuildInternal = ClassBuilder::buildInternal;
+    }
 
     public static @NotNull TypeSignature parse(@NotNull String signature) {
         Objects.requireNonNull(signature, "signature must not null");

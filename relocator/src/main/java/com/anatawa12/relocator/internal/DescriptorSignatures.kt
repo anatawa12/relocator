@@ -64,10 +64,10 @@ internal object DescriptorSignatures {
     /**
      * @return the array of index of end of a type (exclusive)
      */
-    internal fun parseMethodDesc(descriptor: String): IntArray =
-        Cursor(descriptor, "method descriptor").runCursor(::parseMethodDesc)
+    internal fun parseMethodDesc(descriptor: String, returns: Boolean = true): IntArray =
+        Cursor(descriptor, "method descriptor").runCursor { parseMethodDesc(it, returns) }
 
-    private fun parseMethodDesc(cursor: Cursor): IntArray {
+    private fun parseMethodDesc(cursor: Cursor, returns: Boolean): IntArray {
         val indices = ArrayList<Int>()
         cursor.require(cursor.getAndNext() == '(', "expected '('")
         while (cursor.get() != ')') {
@@ -75,8 +75,8 @@ internal object DescriptorSignatures {
             indices.add(cursor.index)
         }
         cursor.getAndNext() // skip ')'
-        parseTypeDesc(cursor, TypeKind.Voidable)
-        cursor.end()
+        if (returns)
+            parseTypeDesc(cursor, TypeKind.Voidable)
         return indices.toIntArray()
     }
 
@@ -215,7 +215,7 @@ internal object DescriptorSignatures {
         val dimension = cursor.index - begin
         val tag = cursor.getAndNext()
         if (dimension == 0 && type.void && tag == 'V') return TypeSignature.VOID.array(dimension)
-        if (type.prim) {
+        if (type.prim || dimension != 0) {
             val i = BASIC_TYPES.indexOf(tag)
             if (i != -1) return basicTypeSignatures[i].array(dimension)
         }

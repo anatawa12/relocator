@@ -47,8 +47,9 @@ internal class OwnerBasedSet<E : Any, T : Any>(
 
 internal class OwnerBasedList<E : Any, T : Any>(
     private val owner: T,
-    private val accessor: OwnerAccessor<E, T>,
+    private val accessorGetter: () -> OwnerAccessor<E, T>,
 ) : AbstractMutableList<E>() {
+    private val accessor: OwnerAccessor<E, T> get() = accessorGetter()
     private val backed = ArrayList<E>()
 
     override fun add(element: E): Boolean {

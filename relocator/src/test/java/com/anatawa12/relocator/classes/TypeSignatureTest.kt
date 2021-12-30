@@ -67,6 +67,11 @@ internal class TypeSignatureTest : DescribeSpec() {
                 .addTypeArgument(TypeSignature.classOf("java/lang/String"))
                 .build())
 
+        testParse("L${"java/lang/List"}<[I>;", TypeSignature.Kind.Class,
+            TypeSignature.ClassBuilder("java/lang/List")
+                .addTypeArgument(TypeSignature.INT.array(1))
+                .build())
+
         testParse("L${"test/Outer"}<L${"java/lang/String"};>.Inner<L${"java/lang/Integer"};>;", TypeSignature.Kind.Class,
             TypeSignature.ClassBuilder("test/Outer")
                 .addTypeArgument(TypeSignature.classOf("java/lang/String"))

@@ -12,14 +12,14 @@ import com.anatawa12.relocator.internal.BasicDiagnostics.UNRESOLVABLE_REFLECTION
 import com.anatawa12.relocator.internal.BasicDiagnostics.UNRESOLVABLE_REFLECTION_METHOD
 import com.anatawa12.relocator.internal.ClassRefCollectingAnnotationVisitor.acceptAnnotations
 import com.anatawa12.relocator.internal.ClassRefCollectingAnnotationVisitor.acceptValue
-import com.anatawa12.relocator.internal.ClassRefCollectingSignatureVisitor.Utils.acceptSignature
+import com.anatawa12.relocator.internal.SignatureClassRefCollector.Utils.processClassSignature
+import com.anatawa12.relocator.internal.SignatureClassRefCollector.Utils.processMethodSignature
+import com.anatawa12.relocator.internal.SignatureClassRefCollector.Utils.processTypeSignature
 import com.anatawa12.relocator.reference.*
 import com.anatawa12.relocator.reflect.ReflectionMappingContainer
 import com.google.common.annotations.VisibleForTesting
 import org.objectweb.asm.Opcodes.*
 import org.objectweb.asm.Type
-import org.objectweb.asm.signature.SignatureReader
-import org.objectweb.asm.signature.SignatureVisitor
 import java.util.*
 
 internal class ComputeReferenceEnvironment(
@@ -33,7 +33,7 @@ internal fun computeReferencesOfClass(
     env: ComputeReferenceEnvironment,
     main: ClassFile,
 ) = buildSet<Reference> {
-    acceptSignature(this, env, main.innerClassesContainer, main.signature, Location.Class(main.name))
+    processClassSignature(this, env, main.innerClassesContainer, main.signature, Location.Class(main.name))
     main.superName?.let(::add)
     main.outerClass?.let(::add)
     // super interfaces is not required to be exists
@@ -56,7 +56,8 @@ internal fun computeReferencesOfClass(
         // if this class will be kept
         for (recordField in main.recordFields)
             add(RecordFieldReference(main.name, recordField.name, recordField.descriptor))
-        val recordDefaultCtor = "(${main.recordFields.joinToString("") { it.descriptor }})V"
+        val recordDefaultCtor = MethodDescriptor(TypeDescriptor("V"),
+            main.recordFields.map { it.descriptor })
         add(MethodReference(main.name, "<init>", recordDefaultCtor))
     }
 
@@ -73,9 +74,9 @@ internal suspend fun computeReferencesOfMethod(
     main: ClassMethod,
 ) = buildSet<Reference> {
     val owner = main.owner
-    Type.getArgumentTypes(main.descriptor).mapNotNullTo(this, ::newReference)
-    Type.getReturnType(main.descriptor).let(::newReference)?.let(::add)
-    acceptSignature(this, env, owner.innerClassesContainer, main.signature, Location.Method(main))
+    main.descriptor.arguments.mapNotNullTo(this, ::newReference)
+    main.descriptor.returns.let(::newReference)?.let(::add)
+    processMethodSignature(this, env, owner.innerClassesContainer, main.signature, Location.Method(main))
     main.exceptions.let(::addAll)
     acceptValue(this, main.annotationDefault)
     acceptAnnotations(this, env, main.visibleAnnotations)
@@ -108,8 +109,8 @@ internal suspend fun computeReferencesOfField(
     main: ClassField,
 ) = buildSet<ClassReference> {
     val owner = main.owner
-    Type.getType(main.descriptor).let(::newReference)?.let(::add)
-    acceptSignature(this, env, owner.innerClassesContainer, main.signature, Location.Field(main))
+    main.descriptor.let(::newReference)?.let(::add)
+    processTypeSignature(this, env, owner.innerClassesContainer, main.signature, Location.Field(main))
     acceptValue(this, main.value)
     acceptAnnotations(this, env, main.visibleAnnotations)
     acceptAnnotations(this, env, main.visibleTypeAnnotations)
@@ -135,15 +136,15 @@ internal suspend fun computeReferencesOfRecordField(
     main: ClassRecordField,
 ) = buildSet<Reference> {
     val owner = main.owner
-    main.descriptor.let(::newReferenceDesc)?.let(::add)
-    acceptSignature(this,
+    main.descriptor.let(::newReference)?.let(::add)
+    processTypeSignature(this,
         env,
         owner.innerClassesContainer,
         main.signature,
         Location.RecordField(main))
     acceptAnnotations(this, env, main.visibleAnnotations)
     acceptAnnotations(this, env, main.visibleTypeAnnotations)
-    add(MethodReference(main.name, main.name, "()${main.descriptor}"))
+    add(MethodReference(main.name, main.name, MethodDescriptor(main.descriptor)))
     if (env.keepRuntimeInvisibleAnnotation) {
         acceptAnnotations(this, env, main.invisibleAnnotations)
         acceptAnnotations(this, env, main.invisibleTypeAnnotations)
@@ -163,8 +164,8 @@ internal suspend fun computeReferencesOfClassCode(
         }
     }
     main.localVariables.forEach { localVariable ->
-        localVariable.descriptor.let(::newReferenceDesc)?.let(::add)
-        acceptSignature(this, env, main.owner.owner.innerClassesContainer, localVariable.signature,
+        localVariable.descriptor.let(::newReference)?.let(::add)
+        processTypeSignature(this, env, main.owner.owner.innerClassesContainer, localVariable.signature,
             Location.MethodLocal(localVariable))
     }
     collectReferencesOfInsnList(env, main.instructions, this, Location.Method(main.owner))
@@ -173,17 +174,15 @@ internal suspend fun computeReferencesOfClassCode(
 fun processConstant(value: Constant, references: MutableCollection<in Reference>) {
     when (value) {
         is ConstantMethodType -> {
-            val method = Type.getType(value.descriptor)
-            method.argumentTypes.mapNotNullTo(references, ::newReference)
-            newReference(method.returnType)?.let(references::add)
+            value.descriptor.arguments.mapNotNullTo(references, ::newReference)
+            newReference(value.descriptor.returns)?.let(references::add)
         }
         is ConstantClass -> {
-            newReference(Type.getType(value.descriptor))?.let(references::add)
+            newReference(value.descriptor)?.let(references::add)
         }
         is ConstantDynamic -> {
-            val method = Type.getType(value.descriptor)
-            method.argumentTypes.mapNotNullTo(references, ::newReference)
-            newReference(method.returnType)?.let(references::add)
+            value.descriptor.arguments.mapNotNullTo(references, ::newReference)
+            newReference(value.descriptor.returns)?.let(references::add)
             processConstant(value.bootstrapMethod, references)
             for (arg in value.args)
                 processConstant(arg, references)
@@ -258,7 +257,7 @@ internal fun collectReferencesOfInsnList(
 
 internal class ExtraReferenceDetector(
     isStatic: Boolean,
-    methodDescriptor: String,
+    methodDescriptor: MethodDescriptor,
     maxLocals: Int,
     val tryCatchBlocks: Map<CodeLabel, List<TryCatchBlock>>,
     val env: ComputeReferenceEnvironment,
@@ -682,13 +681,12 @@ internal class ExtraReferenceDetector(
         }
     }
 
-    private fun popAsDescriptorAndReturnWord(descriptor: String): Pair<List<Any>, Word?> {
+    private fun popAsDescriptorAndReturnWord(descriptor: MethodDescriptor): Pair<List<Any>, Word?> {
         val frame = frame!!
-        val type = Type.getType(descriptor)
-        val parameters = List(type.argumentTypes.size) {
+        val parameters = List(descriptor.arguments.size) {
             frame.stacks.removeLast() // pop arguments
         }.asReversed()
-        return parameters to Word.from(type.returnType.descriptor)
+        return parameters to Word.from(descriptor.returns)
     }
 
     // Word for unknowns
@@ -723,11 +721,10 @@ internal class ExtraReferenceDetector(
             
             fun init(
                 isStatic: Boolean, // null: static, others for instance method
-                methodDescriptor: String, 
+                methodDescriptor: MethodDescriptor,
                 maxLocals: Int,
             ): StackFrame {
-                val types = Type.getType(methodDescriptor).argumentTypes
-                    .mapTo(arrayListOf<Any?>()) { Word.from(it.descriptor) }
+                val types = methodDescriptor.arguments.mapTo(arrayListOf<Any?>()) { Word.from(it) }
                 if (!isStatic) types.add(0, Word.Single)
                 while (types.size < maxLocals) types.add(null)
                 return StackFrame(types, arrayListOf())
@@ -781,7 +778,7 @@ internal class ExtraReferenceDetector(
         object Single : Word()
         object Double : Word()
         companion object {
-            fun from(descriptor: String): Word? = when (descriptor[0]) {
+            fun from(descriptor: TypeDescriptor): Word? = when (descriptor.descriptor[0]) {
                 'V' -> null
                 'Z' -> Single
                 'C' -> Single
@@ -799,52 +796,77 @@ internal class ExtraReferenceDetector(
     }
 }
 
-internal class ClassRefCollectingSignatureVisitor private constructor(
+internal class SignatureClassRefCollector private constructor(
     val references: MutableCollection<in ClassReference>,
     val env: ComputeReferenceEnvironment,
     val innerClasses: InnerClassContainer,
     val location: Location,
-) : SignatureVisitor(ASM9) {
-    private val child by lazy(LazyThreadSafetyMode.NONE) {
-        ClassRefCollectingSignatureVisitor(references, env, innerClasses, location)
-    }
+) {
+    fun processTypeSignature(signature: TypeSignature) {
+        if (signature.kind != TypeSignature.Kind.Class) return
+        var classType = ClassReference(signature.rootClassName)
+        for (i in 0 .. signature.innerClassCount)
+            signature.getTypeArguments(i).forEach { it.type?.let(::processTypeSignature) }
 
-    private var classType: ClassReference? = null
-
-    override fun visitClassType(name: String) {
-        classType = ClassReference(name)
-    }
-
-    override fun visitInnerClassType(name: String) {
-        classType = classType?.let { classType ->
-            val foundInner = innerClasses.findInner(classType, name)
-            if (foundInner == null)
-                env.addDiagnostic(UNRESOLVABLE_INNER_CLASS(classType.name, name, location))
-            foundInner
+        for (i in 1 .. signature.innerClassCount) {
+            val name = signature.getInnerClassName(i)
+            classType = innerClasses.findInner(classType, name)
+                ?: return env.addDiagnostic(UNRESOLVABLE_INNER_CLASS(classType.name, name, location))
         }
+        references.add(classType)
     }
 
-    override fun visitTypeArgument(wildcard: Char): SignatureVisitor = child
-
-    override fun visitEnd() {
-        classType?.let { classType ->
-            references.add(classType)
+    fun processClassSignature(signature: ClassSignature) {
+        signature.typeParameters.forEach { param ->
+            param.classBound?.let(::processTypeSignature)
+            param.interfaceBounds.forEach(::processTypeSignature)
         }
-        classType = null
+        processTypeSignature(signature.superClass)
+        signature.superInterfaces.forEach(::processTypeSignature)
+    }
+
+    fun processMethodSignature(signature: MethodSignature) {
+        signature.typeParameters.forEach { param ->
+            param.classBound?.let(::processTypeSignature)
+            param.interfaceBounds.forEach(::processTypeSignature)
+        }
+        signature.valueParameters.forEach(::processTypeSignature)
+        processTypeSignature(signature.returns)
+        signature.throwsTypes.forEach(::processTypeSignature)
     }
 
     companion object Utils {
-        fun acceptSignature(
+        fun processClassSignature(
             references: MutableCollection<in ClassReference>,
             env: ComputeReferenceEnvironment,
             innerClasses: InnerClassContainer,
-            signature: String?,
+            signature: ClassSignature?,
             location: Location,
         ) {
-            if (signature != null) {
-                SignatureReader(signature)
-                    .accept(ClassRefCollectingSignatureVisitor(references, env, innerClasses, location))
-            }
+            if (signature != null)
+                SignatureClassRefCollector(references, env, innerClasses, location).processClassSignature(signature)
+        }
+
+        fun processMethodSignature(
+            references: MutableCollection<in ClassReference>,
+            env: ComputeReferenceEnvironment,
+            innerClasses: InnerClassContainer,
+            signature: MethodSignature?,
+            location: Location,
+        ) {
+            if (signature != null)
+                SignatureClassRefCollector(references, env, innerClasses, location).processMethodSignature(signature)
+        }
+
+        fun processTypeSignature(
+            references: MutableCollection<in ClassReference>,
+            env: ComputeReferenceEnvironment,
+            innerClasses: InnerClassContainer,
+            signature: TypeSignature?,
+            location: Location,
+        ) {
+            if (signature != null)
+                SignatureClassRefCollector(references, env, innerClasses, location).processTypeSignature(signature)
         }
     }
 }
@@ -852,14 +874,14 @@ internal class ClassRefCollectingSignatureVisitor private constructor(
 internal object ClassRefCollectingAnnotationVisitor {
     fun acceptValue(references: MutableCollection<in ClassReference>, value: Constant?) {
         if (value is ConstantClass)
-            newReference(Type.getType(value.descriptor))?.let(references::add)
+            newReference(value.descriptor)?.let(references::add)
     }
 
     fun acceptValue(references: MutableCollection<in ClassReference>, value: AnnotationValue?) {
         if (value is ClassAnnotation)
             references.add(value.annotationClass)
         if (value is AnnotationClass)
-            newReference(Type.getType(value.descriptor))?.let(references::add)
+            newReference(value.descriptor)?.let(references::add)
         if (value is AnnotationEnum)
             references.add(value.owner)
     }
@@ -899,7 +921,7 @@ internal object ClassRefCollectingAnnotationVisitor {
         references: MutableCollection<in ClassReference>,
         clazz: AnnotationClass,
     ) {
-        newReferenceDesc(clazz.descriptor)?.let(references::add)
+        newReference(clazz.descriptor)?.let(references::add)
     }
 
     fun acceptAnnotation(
@@ -1021,8 +1043,13 @@ private fun newReference(type: Type): ClassReference? {
     }
 }
 
+private fun newReference(type: TypeDescriptor): ClassReference? {
+    return when (type.descriptor[0]) {
+        '[' -> newReference(type.elementType)
+        'L' -> ClassReference(type.internalName)
+        else -> null
+    }
+}
+
 private fun newReference(internalName: String): ClassReference? =
     newReference(Type.getObjectType(internalName))
-
-private fun newReferenceDesc(descriptor: String): ClassReference? =
-    newReference(Type.getType(descriptor))

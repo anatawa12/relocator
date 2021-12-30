@@ -112,7 +112,7 @@ private class ReferencesCollectContextImpl(
                 is FieldReference -> {
                     val field = classpath.findField(reference)
                         ?: return@start addDiagnostic(UNRESOLVABLE_FIELD(reference.owner.name,
-                            reference.name, reference.descriptor, reference.location ?: Location.None))
+                            reference.name, reference.descriptor.descriptor, reference.location ?: Location.None))
                     collectReferencesOf(field)
                 }
                 is PartialFieldReference -> {
@@ -125,7 +125,7 @@ private class ReferencesCollectContextImpl(
                 is RecordFieldReference -> {
                     val recordField = classpath.findRecordField(reference)
                         ?: return@start addDiagnostic(UNRESOLVABLE_FIELD(reference.owner.name,
-                            reference.name, reference.descriptor, reference.location ?: Location.None))
+                            reference.name, reference.descriptor.descriptor, reference.location ?: Location.None))
                     collectReferencesOf(recordField)
                 }
                 is MethodReference -> {
@@ -135,7 +135,7 @@ private class ReferencesCollectContextImpl(
                         return@start
                     collectReferencesOf(classpath.findMethod(reference)
                         ?: return@start addDiagnostic(UNRESOLVABLE_METHOD(reference.owner.name,
-                            reference.name, reference.descriptor, reference.location ?: Location.None)))
+                            reference.name, reference.descriptor.descriptor, reference.location ?: Location.None)))
                 }
                 is PartialMethodReference -> {
                     if (reference.owner.name[0] == '[' && isArrayMethod(reference))
@@ -170,8 +170,8 @@ private class ReferencesCollectContextImpl(
         if (reference.owner.name == "java/lang/invoke/MethodHandle"
             || reference.owner.name == "java/lang/invoke/VarHandle") {
             val methodHandle = classpath.findClass(reference.owner.name) ?: return false
-            val method = methodHandle
-                .findMethod(reference.name, "([L${"java/lang/Object"};)L${"java/lang/Object"};") ?: return false
+            val method = methodHandle.findMethod(reference.name,
+                MethodDescriptor("([L${"java/lang/Object"};)L${"java/lang/Object"};")) ?: return false
             return method.access.hasFlag(ACC_VARARGS or ACC_NATIVE)
         }
         return false

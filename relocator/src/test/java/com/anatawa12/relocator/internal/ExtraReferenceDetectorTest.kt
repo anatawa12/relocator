@@ -10,10 +10,11 @@ import io.kotest.matchers.*
 internal class ExtraReferenceDetectorTest : DescribeSpec() {
     private val env = newComputeReferenceEnvironment()
     private val location = Location.None
+    val voidMethod = MethodDescriptor("()V")
 
     private fun detectExtraReference(list: List<Insn>): Set<Reference> {
         val references = mutableSetOf<Reference>()
-        ExtraReferenceDetector(true, "()V", 5,
+        ExtraReferenceDetector(true, voidMethod, 5,
             emptyMap(), env, location, list, references, emptySet())
             .collectExtraReferences()
         return references
@@ -21,7 +22,7 @@ internal class ExtraReferenceDetectorTest : DescribeSpec() {
 
     private fun checkOnStackValue(list: List<Insn>): Any {
         val references = mutableSetOf<Reference>()
-        val detector = ExtraReferenceDetector(true, "()V", 5,
+        val detector = ExtraReferenceDetector(true, voidMethod, 5,
             emptyMap(), env, location, list, references, emptySet())
         detector.collectExtraReferences()
         return detector.pop()
@@ -111,7 +112,7 @@ internal class ExtraReferenceDetectorTest : DescribeSpec() {
     }
 
     private val loadClassFunctionReflectionString = buildList {
-        add(LdcInsn(ConstantClass("com/anatawa12/Test")))
+        add(LdcInsn(ConstantClass("Lcom/anatawa12/Test;")))
         add(MethodInsn(MethodInsnType.INVOKEVIRTUAL,
             MethodReference(
                 "java/lang/Class",

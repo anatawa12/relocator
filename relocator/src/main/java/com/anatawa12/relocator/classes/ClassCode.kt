@@ -24,7 +24,7 @@ class ClassCode(
     val invisibleLocalVariableAnnotations = invisibleLocalVariableAnnotations.toMutableList()
 
     private val owner = atomic<ClassMethod?>(null)
-    val localVariables: MutableList<LocalVariable> = OwnerBasedList(this, ownerAccessorLocalVariable)
+    val localVariables: MutableList<LocalVariable> = OwnerBasedList(this, ::ownerAccessorLocalVariable)
         .apply { addAll(localVariables) }
 
     init {

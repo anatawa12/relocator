@@ -1,9 +1,10 @@
 package com.anatawa12.relocator.reference
 
-import com.anatawa12.relocator.classes.ClassField
-import com.anatawa12.relocator.classes.ClassMethod
+import com.anatawa12.relocator.classes.*
 import com.anatawa12.relocator.diagnostic.Location
 import com.anatawa12.relocator.internal.owner
+
+// TODO: replace ClassRefence in method/field to another InernalName class
 
 sealed class Reference {
     var location: Location? = null
@@ -55,10 +56,14 @@ class MethodReference(
     /**
      * The descriptor of the method.
      */
-    val descriptor: String,
+    val descriptor: MethodDescriptor,
 ): Reference() {
-    constructor(owner: String, name: String, descriptor: String) :
+    constructor(owner: String, name: String, descriptor: MethodDescriptor) :
             this(ClassReference(owner), name, descriptor)
+    constructor(owner: ClassReference, name: String, descriptor: String) :
+            this(owner, name, MethodDescriptor(descriptor))
+    constructor(owner: String, name: String, descriptor: String) :
+            this(ClassReference(owner), name, MethodDescriptor(descriptor))
 
     constructor(method: ClassMethod): this(method.owner.name, method.name, method.descriptor)
 
@@ -91,12 +96,12 @@ class PartialMethodReference(
     /**
      * The descriptor of the method without return type
      */
-    val descriptor: String,
+    val descriptor: PartialMethodDescriptor,
 ): Reference() {
-    constructor(owner: String, name: String, descriptor: String) :
+    constructor(owner: String, name: String, descriptor: PartialMethodDescriptor) :
             this(ClassReference(owner), name, descriptor)
-
-    constructor(method: ClassMethod): this(method.owner.name, method.name, method.descriptor)
+    constructor(owner: String, name: String, descriptor: String) :
+            this(ClassReference(owner), name, PartialMethodDescriptor(descriptor))
 
     override fun toString(): String = "methods ${owner.name}.$name:$descriptor"
 
@@ -154,10 +159,12 @@ class FieldReference(
     /**
      * The descriptor of the field.
      */
-    val descriptor: String,
+    val descriptor: TypeDescriptor,
 ): Reference() {
-    constructor(owner: String, name: String, descriptor: String) :
+    constructor(owner: String, name: String, descriptor: TypeDescriptor) :
             this(ClassReference(owner), name, descriptor)
+    constructor(owner: String, name: String, descriptor: String) :
+            this(ClassReference(owner), name, TypeDescriptor(descriptor))
 
     constructor(method: ClassField): this(method.owner.name, method.name, method.descriptor)
 
@@ -218,9 +225,9 @@ class RecordFieldReference(
     /**
      * The descriptor of the record component.
      */
-    val descriptor: String,
+    val descriptor: TypeDescriptor,
 ): Reference() {
-    constructor(owner: String, name: String, descriptor: String) :
+    constructor(owner: String, name: String, descriptor: TypeDescriptor) :
             this(ClassReference(owner), name, descriptor)
 
     override fun toString(): String = "field ${owner.name}.$name:$descriptor"

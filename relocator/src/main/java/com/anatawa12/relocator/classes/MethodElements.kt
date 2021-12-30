@@ -22,8 +22,8 @@ class TryCatchBlock(
 
 class LocalVariable(
     var name: String,
-    var descriptor: String,
-    var signature: String?,
+    var descriptor: TypeDescriptor,
+    var signature: TypeSignature?,
     val start: CodeLabel,
     val end: CodeLabel,
     val index: Int,

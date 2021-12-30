@@ -1,5 +1,7 @@
 package com.anatawa12.relocator.diagnostic
 
+import com.anatawa12.relocator.classes.MethodDescriptor
+import com.anatawa12.relocator.classes.TypeDescriptor
 import com.anatawa12.relocator.diagnostic.SuppressingLocation.*
 import com.google.common.collect.HashMultimap
 import org.intellij.lang.annotations.Language
@@ -103,7 +105,7 @@ sealed class SuppressingLocation {
             .shl(31).plus(name.hashCode())
     }
 
-    class InMethodWithType(owner: String, val name: String, val descriptor: String) : SuppressingLocation() {
+    class InMethodWithType(owner: String, val name: String, val descriptor: MethodDescriptor) : SuppressingLocation() {
         val owner: String
 
         init {
@@ -134,7 +136,7 @@ sealed class SuppressingLocation {
             .shl(31).plus(name.hashCode())
     }
 
-    class InFieldWithType(owner: String, val name: String, val descriptor: String) : SuppressingLocation() {
+    class InFieldWithType(owner: String, val name: String, val descriptor: TypeDescriptor) : SuppressingLocation() {
         val owner: String
 
         init {
