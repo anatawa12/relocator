@@ -104,7 +104,10 @@ private class ReferencesCollectContextImpl(
         queue.start {
             when (reference) {
                 is ClassReference -> {
-                    val rootClass = reference.arrayComponent ?: return@start
+                    val rootClass = when {
+                        reference.isArray() -> reference.arrayComponentType.tryAsClassReference() ?: return@start
+                        else -> reference
+                    }
                     collectReferencesOf(classpath.findClass(rootClass)
                         ?: return@start addDiagnostic(UNRESOLVABLE_CLASS(rootClass.name,
                             rootClass.location ?: Location.None)))
@@ -129,7 +132,7 @@ private class ReferencesCollectContextImpl(
                     collectReferencesOf(recordField)
                 }
                 is MethodReference -> {
-                    if (reference.owner.name[0] == '[' && isArrayMethod(reference))
+                    if (reference.owner.isArray() && isArrayMethod(reference))
                         return@start
                     if (isSignaturePolymorphicMethod(reference))
                         return@start
@@ -138,7 +141,7 @@ private class ReferencesCollectContextImpl(
                             reference.name, reference.descriptor.descriptor, reference.location ?: Location.None)))
                 }
                 is PartialMethodReference -> {
-                    if (reference.owner.name[0] == '[' && isArrayMethod(reference))
+                    if (reference.owner.isArray() && isArrayMethod(reference))
                         return@start
 
                     val methods = classpath.findMethods(reference)
@@ -148,7 +151,7 @@ private class ReferencesCollectContextImpl(
                     methods.forEach { start { collectReferencesOf(it) } }
                 }
                 is TypelessMethodReference -> {
-                    if (reference.owner.name[0] == '[' && isArrayMethod(reference))
+                    if (reference.owner.isArray() && isArrayMethod(reference))
                         return@start
 
                     val methods = classpath.findMethods(reference)

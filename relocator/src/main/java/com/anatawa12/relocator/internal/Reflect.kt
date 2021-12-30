@@ -9,12 +9,9 @@ class ParameterDescriptors(
     val self: TypeDescriptor,
     val parameters: List<TypeDescriptor>,
 ) {
-    constructor(self: MethodReference) : this(
-        TypeDescriptor("L${self.owner};"),
-        self.descriptor.arguments,
-    )
+    constructor(self: MethodReference) : this(self.owner.asTypeDescriptor(), self.descriptor.arguments)
 
-    constructor(self: FieldReference) : this(TypeDescriptor("L${self.owner};"), emptyList())
+    constructor(self: FieldReference) : this(self.owner.asTypeDescriptor(), emptyList())
 
     fun require(index: Int, type: TypeDescriptor) {
         val actual = if (index == -1) self else parameters.getOrNull(index)
@@ -278,7 +275,7 @@ internal class FieldRef(val owner: ClassRef, val name: StringRef, val type: Clas
         val owner = owner.resolve(params) ?: return null
         val name = name.resolve(params) ?: return null
         val type = type?.resolve(params)
-        if (owner.descriptor.descriptor[0] != 'L') return null
+        if (owner.descriptor.elementType.kind == TypeDescriptor.Kind.Class) return null
         val ownerInternalName = owner.descriptor.internalName
         return when {
             type == null -> PartialFieldReference(ownerInternalName, name)
@@ -298,7 +295,7 @@ internal class MethodRef(val owner: ClassRef, val name: StringRef, val type: Met
         val owner = owner.resolve(params) ?: return null
         val name = name.resolve(params) ?: return null
         val type = type?.resolve(params)
-        if (owner.descriptor.descriptor[0] != 'L') return null
+        if (owner.descriptor.elementType.kind == TypeDescriptor.Kind.Class) return null
         val ownerInternalName = ClassReference(owner.descriptor.internalName)
         return when (type) {
             null -> TypelessMethodReference(ownerInternalName, name)

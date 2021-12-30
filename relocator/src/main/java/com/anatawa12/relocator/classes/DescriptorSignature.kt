@@ -2,6 +2,7 @@ package com.anatawa12.relocator.classes
 
 import com.anatawa12.relocator.internal.*
 import com.anatawa12.relocator.internal.TypeKind
+import com.anatawa12.relocator.reference.ClassReference
 
 abstract class AnyMethodDescriptor(val descriptor: String) {
     init {
@@ -15,7 +16,7 @@ class MethodDescriptor(descriptor: String) : AnyMethodDescriptor(descriptor) {
     constructor(returns: TypeDescriptor, vararg args: TypeDescriptor) :
             this(returns, args.asList())
     constructor(returns: TypeDescriptor, args: List<TypeDescriptor>) :
-            this(args.joinToString(prefix = "(", postfix = ")${returns.descriptor}", separator = "") { it.descriptor })
+            this(args.joinToString(prefix = "(", postfix = ")${returns.descriptor}", separator = ""))
 
     private val argIndices = DescriptorSignatures.parseMethodDesc(descriptor)
     private val _arguments = ArgsList()
@@ -44,7 +45,7 @@ class MethodDescriptor(descriptor: String) : AnyMethodDescriptor(descriptor) {
 
 class PartialMethodDescriptor(descriptor: String) : AnyMethodDescriptor(descriptor) {
     constructor(vararg args: TypeDescriptor) : this(args.asList())
-    constructor(args: List<TypeDescriptor>) : this(args.joinToString(prefix = "(", postfix = ")", separator = "") { it.descriptor })
+    constructor(args: List<TypeDescriptor>) : this(args.joinToString(prefix = "(", postfix = ")", separator = ""))
 
     private val argIndices = DescriptorSignatures.parseMethodDesc(descriptor, false)
     private val _arguments = ArgsList()
@@ -81,15 +82,29 @@ class TypeDescriptor {
         this.descriptor = descriptor
     }
 
-    val elementType: TypeDescriptor get() {
-        check(descriptor[0] == '[') { "this type is not array type: $descriptor" }
-        return TypeDescriptor(descriptor.substring(descriptor.indexOfFirst { it != '[' }), 0)
+    val kind get() = when (descriptor[0]) {
+        'L' -> Kind.Class
+        '[' -> Kind.Array
+        else -> Kind.Primitive
     }
 
-    val internalName: String get() = when (descriptor[0]) {
-        'L' -> descriptor.substring(1, descriptor.length - 1)
-        '[' -> descriptor
+    val arrayDimensions get() = descriptor.indexOfFirst { it != '[' }
+
+    val elementType: TypeDescriptor get() {
+        check(kind == Kind.Array) { "this type is not array type: $descriptor" }
+        return TypeDescriptor(descriptor.substring(arrayDimensions), 0)
+    }
+
+    val internalName: String get() = when (kind) {
+        Kind.Class -> descriptor.substring(1, descriptor.length - 1)
+        Kind.Array -> descriptor
         else -> error("primitive type doesn't have internal name: $descriptor")
+    }
+
+    fun tryAsClassReference(): ClassReference? = when (kind) {
+        Kind.Class -> ClassReference(descriptor.substring(1, descriptor.length - 1))
+        Kind.Array -> ClassReference(descriptor)
+        else -> null
     }
 
     private object Init {
@@ -104,6 +119,12 @@ class TypeDescriptor {
         this === other || javaClass == other?.javaClass && descriptor == (other as TypeDescriptor).descriptor
     override fun hashCode(): Int = descriptor.hashCode()
     override fun toString(): String = descriptor
+
+    enum class Kind {
+        Array,
+        Class,
+        Primitive,
+    }
 }
 
 // signatures are implemented in java because 

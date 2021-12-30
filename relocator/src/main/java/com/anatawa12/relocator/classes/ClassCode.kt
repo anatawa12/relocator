@@ -191,7 +191,7 @@ class RetInsn(var variable: Int) : Insn() {
 class TypeInsn(val insn: TypeInsnType, var type: ClassReference) : Insn() {
     init {
         if (insn == TypeInsnType.NEW)
-            require(type.name[0] != '[') { "type for NEW insn must not a array." }
+            require(!type.isArray()) { "type for NEW insn must not a array." }
     }
 }
 
@@ -216,7 +216,7 @@ class MethodInsn(val insn: MethodInsnType, var method: MethodReference, var isIn
         require(method.name != "<clinit>") { "we can't call <clinit>" }
         if (method.name == "<init>") {
             require(insn == MethodInsnType.INVOKESPECIAL) { "we can't call <init> via $insn" }
-            require(method.owner.name[0] != '[') { "we can't call <init> of array" }
+            require(!method.owner.isArray()) { "we can't call <init> of array" }
             require(!isInterface) { "we can't call <init> of interface" }
         }
         if (insn == MethodInsnType.INVOKEINTERFACE) {
@@ -287,10 +287,8 @@ class LookupSwitchInsn(
 class MultiANewArrayInsn(var type: ClassReference, var dimensions: Int) : Insn() {
     init {
         require(dimensions != 0 && dimensions in Insns.ubyteRange) { "dimensions out of range: $dimensions" }
-        require(type.name.startsWith('[')) { "type for MULTIANEWARRAY must be a array" }
-        var arrayDimensions = 0
-        while (type.name[arrayDimensions] == '[') arrayDimensions++
-        require(arrayDimensions >= dimensions) { "type for MULTIANEWARRAY is not deep enough" }
+        require(type.isArray()) { "type for MULTIANEWARRAY must be a array" }
+        require(type.arrayDimensions >= dimensions) { "type for MULTIANEWARRAY is not deep enough" }
     }
 }
 

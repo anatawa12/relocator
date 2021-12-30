@@ -2,6 +2,7 @@ package com.anatawa12.relocator.reference
 
 import com.anatawa12.relocator.classes.*
 import com.anatawa12.relocator.diagnostic.Location
+import com.anatawa12.relocator.internal.newTypeDescriptorInternal
 import com.anatawa12.relocator.internal.owner
 
 // TODO: replace ClassRefence in method/field to another InernalName class
@@ -19,12 +20,17 @@ internal fun <R: Reference> R.withLocation(location: Location?) = apply { if (lo
 class ClassReference(
     name: String,
 ): Reference() {
-    val arrayComponent: ClassReference? by lazy(LazyThreadSafetyMode.NONE) {
-        if (name[0] != '[') return@lazy this
-        if (name.last() != ';') return@lazy null
-        ClassReference(name.substring(name.indexOfFirst { it != '[' } + 1, name.length - 1))
-            .withLocation(location)
-    }
+    fun isArray() = name[0] == '['
+
+    val arrayDimensions get() = name.indexOfFirst { it != '[' }
+
+    val arrayComponentType: TypeDescriptor
+        get() {
+            check(isArray()) { "this is not array" }
+            return newTypeDescriptorInternal(name.substring(arrayDimensions))
+        }
+
+    fun asTypeDescriptor(): TypeDescriptor = if (isArray()) TypeDescriptor(name) else TypeDescriptor("L$name;")
 
     /**
      * The internal form of binary class name.
@@ -34,8 +40,8 @@ class ClassReference(
     override fun toString(): String = name
 
     override fun equals(other: Any?): Boolean = this === other
-                || other is ClassReference
-                && name == other.name
+            || other is ClassReference
+            && name == other.name
 
     override fun hashCode(): Int = 0
         .times(31).plus(name.hashCode())

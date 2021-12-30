@@ -41,7 +41,7 @@ data class ConstantMethodHandle(
             INVOKESPECIAL -> {} // private interface method since 9
             NEWINVOKESPECIAL -> {
                 requireClass()
-                require(method.owner.name[0] != '[') { "we can't call array method via $type" }
+                require(!method.owner.isArray()) { "we can't call array method via $type" }
                 require(method.name == "<init>") { "we need to call '<init>' method via $type" }
             }
             INVOKEINTERFACE -> requireInterface()
