@@ -20,7 +20,7 @@ class ClassAnnotation : AnnotationValue {
     constructor(annotationClass: ClassReference, vararg values: KeyValuePair)
             : this(annotationClass, values.asList())
 
-    override fun toString(): String = "@${annotationClass.name}(${values.joinToString { "${it.key}=${it.value}" }})"
+    override fun toString(): String = "@${annotationClass}(${values.joinToString { "${it.key}=${it.value}" }})"
 }
 
 class AnnotationByte(val value: Byte) : AnnotationValue() {

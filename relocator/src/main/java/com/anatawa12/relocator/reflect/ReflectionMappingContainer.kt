@@ -8,7 +8,6 @@ import com.anatawa12.relocator.reference.ClassReference
 import com.anatawa12.relocator.reference.FieldReference
 import com.anatawa12.relocator.reference.MethodReference
 import com.google.common.collect.HashMultimap
-import org.objectweb.asm.Type
 
 class ReflectionMappingContainer private constructor(
     private val methods: MutableMap<MethodReference, MemberRef>,
@@ -100,29 +99,29 @@ class ReflectionMappingContainer private constructor(
                 val method = ClassReference("java/lang/reflect/Method")
                 val constructor = ClassReference("java/lang/reflect/Constructor")
 
-                addClass(MethodReference(classLoader, "loadClass", "(L${string.name};)L${clazz.name};"),
+                addClass(MethodReference(classLoader, "loadClass", "(L$string;)L$clazz;"),
                     ClassRef.named(StringRef.param(0)))
-                addClass(MethodReference(classLoader, "loadClass", "(L${string.name};B)L${clazz.name};"),
+                addClass(MethodReference(classLoader, "loadClass", "(L$string;B)L$clazz;"),
                     ClassRef.named(StringRef.param(0)))
-                addClass(MethodReference(clazz, "forName", "(L${module.name};L${string.name};)L${clazz.name};"),
+                addClass(MethodReference(clazz, "forName", "(L$module;L$string;)L$clazz;"),
                     ClassRef.named(StringRef.param(1)))
-                addClass(MethodReference(clazz, "forName", "(L${string.name};)L${clazz.name};"),
+                addClass(MethodReference(clazz, "forName", "(L$string;)L$clazz;"),
                     ClassRef.named(StringRef.param(0)))
-                addClass(MethodReference(clazz, "forName", "(L${string.name};ZL${classLoader.name};)L${clazz.name};"),
+                addClass(MethodReference(clazz, "forName", "(L$string;ZL$classLoader;)L$clazz;"),
                     ClassRef.named(StringRef.param(0)))
 
-                addField(MethodReference(clazz, "getField", "(L${string.name};)L${field.name};"),
+                addField(MethodReference(clazz, "getField", "(L$string;)L$field;"),
                     ClassRef.thisParam, StringRef.param(0), null)
-                addMethod(MethodReference(clazz, "getMethod", "(L${string.name};[L${clazz.name};)L${method.name};"),
+                addMethod(MethodReference(clazz, "getMethod", "(L$string;[L$clazz;)L$method;"),
                     ClassRef.thisParam, StringRef.param(0), MethodTypeRef.parameterTypes(1))
-                addMethod(MethodReference(clazz, "getConstructor", "([L${clazz.name};)L${constructor.name};"),
+                addMethod(MethodReference(clazz, "getConstructor", "([L$clazz;)L$constructor;"),
                     ClassRef.thisParam, StringRef.constant("<init>"), MethodTypeRef.parameterTypes(0))
 
-                addField(MethodReference(clazz, "getDeclaredField", "(L${string.name};)L${field.name};"),
+                addField(MethodReference(clazz, "getDeclaredField", "(L$string;)L$field;"),
                     ClassRef.thisParam, StringRef.param(0), null)
-                addMethod(MethodReference(clazz, "getDeclaredMethod", "(L${string.name};[L${clazz.name};)L${method.name};"),
+                addMethod(MethodReference(clazz, "getDeclaredMethod", "(L$string;[L$clazz;)L$method;"),
                     ClassRef.thisParam, StringRef.param(0), MethodTypeRef.parameterTypes(1))
-                addMethod(MethodReference(clazz, "getDeclaredConstructor", "([L${clazz.name};)L${constructor.name};"),
+                addMethod(MethodReference(clazz, "getDeclaredConstructor", "([L$clazz;)L$constructor;"),
                     ClassRef.thisParam, StringRef.constant("<init>"), MethodTypeRef.parameterTypes(0))
 
                 addClass(FieldReference("java/lang/Void", "TYPE", "L${"java/lang/Class"};"), ClassRef.VOID)

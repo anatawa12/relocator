@@ -31,7 +31,7 @@ class ClassReference(
      */
     val name: String = name.replace('.', '/')
 
-    override fun toString(): String = "class $name"
+    override fun toString(): String = name
 
     override fun equals(other: Any?): Boolean = this === other
                 || other is ClassReference
@@ -67,7 +67,7 @@ class MethodReference(
 
     constructor(method: ClassMethod): this(method.owner.name, method.name, method.descriptor)
 
-    override fun toString(): String = "method ${owner.name}.$name:$descriptor"
+    override fun toString(): String = "method $owner.$name:$descriptor"
 
     override fun equals(other: Any?): Boolean = this === other
             || other is MethodReference
@@ -103,7 +103,7 @@ class PartialMethodReference(
     constructor(owner: String, name: String, descriptor: String) :
             this(ClassReference(owner), name, PartialMethodDescriptor(descriptor))
 
-    override fun toString(): String = "methods ${owner.name}.$name:$descriptor"
+    override fun toString(): String = "methods $owner.$name:$descriptor"
 
     override fun equals(other: Any?): Boolean = this === other
             || other is PartialMethodReference
@@ -132,7 +132,7 @@ class TypelessMethodReference(
 
     constructor(method: ClassMethod): this(method.owner.name, method.name)
 
-    override fun toString(): String = "methods ${owner.name}.$name"
+    override fun toString(): String = "methods $owner.$name"
 
     override fun equals(other: Any?): Boolean = this === other
             || other is TypelessMethodReference
@@ -168,7 +168,7 @@ class FieldReference(
 
     constructor(method: ClassField): this(method.owner.name, method.name, method.descriptor)
 
-    override fun toString(): String = "field ${owner.name}.$name:$descriptor"
+    override fun toString(): String = "field $owner.$name:$descriptor"
 
     override fun equals(other: Any?): Boolean = this === other
             || other is FieldReference
@@ -198,7 +198,7 @@ class PartialFieldReference(
     constructor(owner: String, name: String) :
             this(ClassReference(owner), name)
 
-    override fun toString(): String = "fields ${owner.name}.$name"
+    override fun toString(): String = "fields $owner.$name"
 
     override fun equals(other: Any?): Boolean = this === other
             || other is PartialFieldReference
@@ -230,7 +230,7 @@ class RecordFieldReference(
     constructor(owner: String, name: String, descriptor: TypeDescriptor) :
             this(ClassReference(owner), name, descriptor)
 
-    override fun toString(): String = "field ${owner.name}.$name:$descriptor"
+    override fun toString(): String = "field $owner.$name:$descriptor"
 
     override fun equals(other: Any?): Boolean = this === other
             || other is RecordFieldReference

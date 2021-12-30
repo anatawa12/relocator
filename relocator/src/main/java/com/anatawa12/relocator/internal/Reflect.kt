@@ -10,11 +10,11 @@ class ParameterDescriptors(
     val parameters: List<TypeDescriptor>,
 ) {
     constructor(self: MethodReference) : this(
-        TypeDescriptor("L${self.owner.name};"),
+        TypeDescriptor("L${self.owner};"),
         self.descriptor.arguments,
     )
 
-    constructor(self: FieldReference) : this(TypeDescriptor("L${self.owner.name};"), emptyList())
+    constructor(self: FieldReference) : this(TypeDescriptor("L${self.owner};"), emptyList())
 
     fun require(index: Int, type: TypeDescriptor) {
         val actual = if (index == -1) self else parameters.getOrNull(index)
