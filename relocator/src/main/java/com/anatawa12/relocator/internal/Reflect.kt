@@ -275,7 +275,7 @@ internal class FieldRef(val owner: ClassRef, val name: StringRef, val type: Clas
         val owner = owner.resolve(params) ?: return null
         val name = name.resolve(params) ?: return null
         val type = type?.resolve(params)
-        if (owner.descriptor.kind == TypeDescriptor.Kind.Class) return null
+        if (owner.descriptor.kind != TypeDescriptor.Kind.Class) return null
         val ownerInternalName = owner.descriptor.internalName
         return when {
             type == null -> PartialFieldReference(ownerInternalName, name)
@@ -295,7 +295,7 @@ internal class MethodRef(val owner: ClassRef, val name: StringRef, val type: Met
         val owner = owner.resolve(params) ?: return null
         val name = name.resolve(params) ?: return null
         val type = type?.resolve(params)
-        if (owner.descriptor.kind == TypeDescriptor.Kind.Class) return null
+        if (owner.descriptor.kind != TypeDescriptor.Kind.Class) return null
         val ownerInternalName = ClassReference(owner.descriptor.internalName)
         return when (type) {
             null -> TypelessMethodReference(ownerInternalName, name)
