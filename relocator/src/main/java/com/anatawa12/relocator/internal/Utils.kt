@@ -68,7 +68,7 @@ internal operator fun KeyValuePair.component1() = key
 internal operator fun KeyValuePair.component2() = value
 internal fun singleRange(value: Int): IntRange = value..value
 
-fun <S: Any> mapList(types: List<S>, map: (S) -> S?): ArrayList<S>? {
+fun <S: Any> mapList(types: List<S>, map: (S) -> S?): List<S>? {
     val iterator = types.listIterator()
     while (iterator.hasNext()) {
         val type = iterator.next()
@@ -81,7 +81,8 @@ fun <S: Any> mapList(types: List<S>, map: (S) -> S?): ArrayList<S>? {
             val type1 = iterator.next()
             list.add(map(type1) ?: type1)
         }
-        return list
+        list.trimToSize()
+        return Collections.unmodifiableList(list)
     }
     return null
 }

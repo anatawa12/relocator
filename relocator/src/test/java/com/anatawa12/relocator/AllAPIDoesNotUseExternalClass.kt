@@ -1,155 +1,12 @@
 package com.anatawa12.relocator
 
-import com.anatawa12.relocator.internal.hasFlag
 import io.kotest.assertions.fail
-import io.kotest.core.spec.style.DescribeSpec
-import org.objectweb.asm.Opcodes.*
-import java.io.File
-import java.lang.reflect.*
-import kotlin.collections.ArrayDeque
 
 /**
  * The test to check all ABI doesn't use external classes
  */
-class AllAPIDoesNotUseExternalClass : DescribeSpec() {
-    init {
-        val rootDir = File(Relocator::class.java.protectionDomain.codeSource.location.toURI())
-        if (!rootDir.isDirectory)
-            throw Exception("Relocator is in non-directory classpath")
-        for (file in rootDir.walkTopDown().filter { it.isFile && it.extension == "class" }) {
-            val className = file.toRelativeString(rootDir).removeSuffix(".class").replace('/', '.')
-            if (className.startsWith("com.anatawa12.relocator.internal.")) continue
-            val classFile = Class.forName(className)
-            it (className) {
-                checkClassFile(classFile)
-            }
-        }
-    }
-
-    val anonymousClassPattern = """\$[0-9]""".toRegex()
-
-    private fun checkClassFile(classFile: Class<*>) {
-        if (classFile.enclosingMethod != null) return
-        if (classFile.enclosingClass != null) return
-        checkClassFileInternal(classFile)
-    }
-
-    private fun checkClassFileInternal(classFile: Class<*>) {
-        if (!isApi(classFile.modifiers)) return
-        if (classFile.simpleName.isNullOrEmpty() || classFile.simpleName.contains(anonymousClassPattern)) return
-        if (classFile.annotatedSuperclass != null)
-            checkAnnotatedType(classFile.annotatedSuperclass, "superclass of ${classFile.name}")
-        for (clazz in classFile.annotatedInterfaces)
-            checkAnnotatedType(clazz, "a interfaces of ${classFile.name}")
-        checkAnnotations(classFile, classFile.name)
-        for (method in classFile.declaredMethods) {
-            if (!isApi(method.modifiers)) continue
-
-            if (method.name.endsWith("\$relocator")) continue
-            if (method.name in javaKeywords) continue
-            checkAnnotations(method, "method ${classFile.name}:${method.name}")
-            for (parameter in method.parameters)
-                checkAnnotatedType(parameter.annotatedType, "parameter type of method ${classFile.name}:${method.name}")
-            checkAnnotatedType(method.annotatedReturnType, "return type of method ${classFile.name}:${method.name}")
-        }
-
-        for (constructor in classFile.declaredConstructors) {
-            if (!isApi(constructor.modifiers)) continue
-
-            checkAnnotations(constructor, "constructor of ${classFile.name}")
-            for (parameter in constructor.parameters)
-                checkAnnotatedType(parameter.annotatedType, "parameter type of constructor of ${classFile.name}")
-            checkAnnotatedType(constructor.annotatedReturnType, "return type of constructor of ${classFile.name}")
-        }
-
-        for (field in classFile.declaredFields) {
-            if (!isApi(field.modifiers)) continue
-
-            checkAnnotations(field, "field ${classFile.name}:${field.name}")
-            checkAnnotatedType(field.annotatedType, "type of field ${classFile.name}:${field.name}")
-        }
-
-        for (declaredClass in classFile.declaredClasses) {
-            checkClassFileInternal(declaredClass)
-        }
-    }
-
-    private fun isApi(modifiers: Int) = !modifiers.hasFlag(ACC_PRIVATE) && !modifiers.hasFlag(ACC_SYNTHETIC)
-
-    private fun checkAnnotations(classFile: AnnotatedElement, of: String) {
-        val location = "annotation type of $of"
-        for (declaredAnnotation in classFile.declaredAnnotations) {
-            // ignore kotlin.Metadata
-            checkClass(declaredAnnotation.annotationClass.java, location)
-        }
-    }
-
-    private fun checkAnnotatedType(firstType: AnnotatedType, location: String) {
-        val types = ArrayDeque<AnnotatedType>()
-        types.add(firstType)
-        while (types.isNotEmpty()) {
-            val type = types.removeFirst()
-            checkAnnotations(type, "annotation type of $location")
-            when (val genericType = type.type) {
-                is Class<*> -> {
-                    checkClass(genericType, location)
-                    continue
-                }
-            }
-            when (type) {
-                is AnnotatedArrayType -> types.add(type.annotatedGenericComponentType)
-                is AnnotatedParameterizedType -> {
-                    val owner = (type.type as ParameterizedType).ownerType
-                    if (owner != null) types.add(toAnnotated(owner))
-                    types.addAll(type.annotatedActualTypeArguments)
-                }
-                is AnnotatedWildcardType -> {
-                    types.addAll(type.annotatedLowerBounds)
-                    types.addAll(type.annotatedUpperBounds)
-                }
-                is AnnotatedTypeVariable -> {}
-                else -> error("unknown type variable type: $type(${type.javaClass})")
-            }
-        }
-    }
-
-    private fun toAnnotated(type: Type): AnnotatedType {
-        abstract class NoAnnotationElement() : AnnotatedElement {
-            override fun <T : Annotation?> getAnnotation(annotationClass: Class<T>): Nothing? = null
-            override fun getAnnotations(): Array<Annotation> = emptyArray()
-            override fun getDeclaredAnnotations(): Array<Annotation> = emptyArray()
-        }
-        return when (type) {
-            is Class<*> -> object : NoAnnotationElement(), AnnotatedType {
-                override fun getType(): Type = type
-            }
-            is GenericArrayType -> object : NoAnnotationElement(), AnnotatedArrayType {
-                override fun getType(): Type = type
-                override fun getAnnotatedGenericComponentType(): AnnotatedType = toAnnotated(type.genericComponentType)
-            }
-            is ParameterizedType -> object : NoAnnotationElement(), AnnotatedParameterizedType {
-                override fun getType(): Type = type
-                override fun getAnnotatedActualTypeArguments(): Array<AnnotatedType> =
-                    type.actualTypeArguments.map(::toAnnotated).toTypedArray()
-            }
-            is WildcardType -> object : NoAnnotationElement(), AnnotatedWildcardType {
-                override fun getType(): Type = type
-                override fun getAnnotatedLowerBounds(): Array<AnnotatedType> =
-                    type.lowerBounds.map(::toAnnotated).toTypedArray()
-
-                override fun getAnnotatedUpperBounds(): Array<AnnotatedType> =
-                    type.upperBounds.map(::toAnnotated).toTypedArray()
-            }
-            is TypeVariable<*> -> object : NoAnnotationElement(), AnnotatedTypeVariable {
-                override fun getType(): Type = type
-                override fun getAnnotatedBounds(): Array<AnnotatedType> =
-                    type.annotatedBounds
-            }
-            else -> error("unknown type variable type: $type(${type.javaClass})")
-        }
-    }
-
-    private fun checkClass(clazz: Class<*>, location: String) {
+class AllAPIDoesNotUseExternalClass : PublicABITest(true) {
+    override fun checkClass(clazz: Class<*>, location: Location) {
         @Suppress("NAME_SHADOWING") var clazz = clazz
         while (clazz.isArray) clazz = clazz.componentType
 
@@ -162,20 +19,11 @@ class AllAPIDoesNotUseExternalClass : DescribeSpec() {
         if (clazz.name.startsWith("kotlin.jvm.internal.markers.")) return
         if (clazz.name.startsWith("java.")) return
         if (clazz.name.startsWith("com.anatawa12.relocator.")) return
+        if (clazz.name.startsWith("org.jetbrains.annotations.")) return
+        if (clazz.name.startsWith("kotlin.jvm.JvmName")) return
+        if (clazz.name.startsWith("kotlin.annotations.jvm.ReadOnly")) return
+        if (clazz.name.startsWith("kotlin.annotations.jvm.Mutable")) return
 
         fail("uses $clazz at $location")
     }
-
-    val javaKeywords = setOf(
-        "abstract", "continue", "for", "new", "switch",
-        "assert", "default", "goto", "package", "synchronized",
-        "boolean", "do", "if", "private", "this",
-        "break", "double", "implements", "protected", "throw",
-        "byte", "else", "import", "public", "throws",
-        "case", "enum", "instanceof", "return", "transient",
-        "catch", "extends", "int", "short", "try",
-        "char", "final", "interface", "static", "void",
-        "class", "finally", "long", "strictfp", "volatile",
-        "const", "float", "native", "super", "while",
-    )
 }

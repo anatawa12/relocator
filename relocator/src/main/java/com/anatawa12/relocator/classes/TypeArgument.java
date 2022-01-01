@@ -25,7 +25,7 @@ public final class TypeArgument {
         return variant;
     }
 
-    public static final TypeArgument STAR = new TypeArgument(null, TypeVariant.Covariant);
+    public static final @NotNull TypeArgument STAR = new TypeArgument(null, TypeVariant.Covariant);
 
     public static @NotNull TypeArgument of(final @NotNull TypeSignature type, final @NotNull TypeVariant variant) {
         Objects.requireNonNull(type, "type must not null");

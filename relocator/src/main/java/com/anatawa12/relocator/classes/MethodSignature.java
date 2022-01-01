@@ -8,6 +8,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -149,7 +150,10 @@ public final class MethodSignature {
             valueParameters.trimToSize();
             throwsTypes.trimToSize();
 
-            return new MethodSignature(typeParameters, valueParameters, returns, throwsTypes, signature);
+            return new MethodSignature(Collections.unmodifiableList(typeParameters),
+                    Collections.unmodifiableList(valueParameters),
+                    returns,
+                    Collections.unmodifiableList(throwsTypes), signature);
         }
 
         static {

@@ -8,6 +8,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -127,7 +128,10 @@ public final class ClassSignature {
             typeParameters.trimToSize();
             superInterfaces.trimToSize();
 
-            return new ClassSignature(typeParameters, superClass, superInterfaces, signature);
+            return new ClassSignature(Collections.unmodifiableList(typeParameters),
+                    superClass,
+                    Collections.unmodifiableList(superInterfaces), 
+                    signature);
         }
 
         static {

@@ -27,6 +27,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2")
 
     testImplementation(kotlin("reflect"))
+    testImplementation("org.ow2.asm:asm-tree:9.2")
     testImplementation(platform("io.kotest:kotest-bom:5.0.3"))
     testImplementation("io.kotest:kotest-framework-api")
     testImplementation("io.kotest:kotest-assertions-core")

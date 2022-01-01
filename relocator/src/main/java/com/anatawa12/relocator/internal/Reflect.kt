@@ -129,15 +129,15 @@ internal sealed class ClassRef : MemberRef() {
     override abstract fun resolve(params: ParametersContainer): ConstantClass?
 
     companion object {
-        @JvmField var VOID = Descriptor(StringRef.Constant("V"))
-        @JvmField var BYTE = Descriptor(StringRef.Constant("B"))
-        @JvmField var CHAR = Descriptor(StringRef.Constant("C"))
-        @JvmField var DOUBLE = Descriptor(StringRef.Constant("D"))
-        @JvmField var FLOAT = Descriptor(StringRef.Constant("F"))
-        @JvmField var INT = Descriptor(StringRef.Constant("I"))
-        @JvmField var LONG = Descriptor(StringRef.Constant("J"))
-        @JvmField var SHORT = Descriptor(StringRef.Constant("S"))
-        @JvmField var BOOLEAN = Descriptor(StringRef.Constant("Z"))
+        @JvmField val VOID = Descriptor(StringRef.Constant("V"))
+        @JvmField val BYTE = Descriptor(StringRef.Constant("B"))
+        @JvmField val CHAR = Descriptor(StringRef.Constant("C"))
+        @JvmField val DOUBLE = Descriptor(StringRef.Constant("D"))
+        @JvmField val FLOAT = Descriptor(StringRef.Constant("F"))
+        @JvmField val INT = Descriptor(StringRef.Constant("I"))
+        @JvmField val LONG = Descriptor(StringRef.Constant("J"))
+        @JvmField val SHORT = Descriptor(StringRef.Constant("S"))
+        @JvmField val BOOLEAN = Descriptor(StringRef.Constant("Z"))
 
         @JvmStatic
         fun named(nameRef: PublicStringRef) = Named(nameRef.internal)

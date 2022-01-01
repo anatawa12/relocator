@@ -31,7 +31,7 @@ public class MethodTypeRef {
         return new MethodTypeRef(com.anatawa12.relocator.internal.MethodTypeRef.parameterTypes(index));
     }
 
-    public static @NotNull MethodTypeRef parameterAndReturnTypes(int index, ClassRef returns) {
+    public static @NotNull MethodTypeRef parameterAndReturnTypes(int index, @NotNull ClassRef returns) {
         if (index == -1)
             return new MethodTypeRef(
                     com.anatawa12.relocator.internal.MethodTypeRef.thisParametersAndReturnTypes(returns));
@@ -47,12 +47,12 @@ public class MethodTypeRef {
     /**
      * The parameter types only method type reference to this receiver
      */
-    public static @NotNull MethodTypeRef thisParameterTypes =
+    public static final @NotNull MethodTypeRef thisParameterTypes =
             new MethodTypeRef(com.anatawa12.relocator.internal.MethodTypeRef.thisParameterTypes);
     /**
      * The method type reference to this receiver
      */
-    public static @NotNull MethodTypeRef thisParam =
+    public static final @NotNull MethodTypeRef thisParam =
             new MethodTypeRef(com.anatawa12.relocator.internal.MethodTypeRef.thisParam);
 
     @Override

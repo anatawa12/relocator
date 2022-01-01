@@ -113,7 +113,7 @@ public final class TypeParameter {
             return this;
         }
 
-        public @NotNull Builder addInterfaceBound(TypeSignature interfaceBound) {
+        public @NotNull Builder addInterfaceBound(@NotNull TypeSignature interfaceBound) {
             Objects.requireNonNull(interfaceBound, "interfaceBound must not null");
             if (interfaceBound.getKind() == TypeSignature.Kind.Primitive)
                 throw new IllegalArgumentException("primitive is not allowed for interfaceBound");
@@ -131,7 +131,7 @@ public final class TypeParameter {
             building = false;
             if (interfaceBounds != null) {
                 interfaceBounds.trimToSize();
-                return new TypeParameter(name, classBound, interfaceBounds);
+                return new TypeParameter(name, classBound, Collections.unmodifiableList(interfaceBounds));
             } else {
                 return new TypeParameter(name, classBound, Collections.emptyList());
             }
