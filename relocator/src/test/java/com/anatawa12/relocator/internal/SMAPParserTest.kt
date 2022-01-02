@@ -129,5 +129,62 @@ class SMAPParserTest : DescribeSpec({
 
             buildString { parsed.appendTo(this) } shouldBe smap
         }
+        it("with full path by Kotlin") {
+            val smap = """
+                SMAP
+                DummyModelPackManager.kt
+                Kotlin
+                *S Kotlin
+                *F
+                + 1 DummyModelPackManager.kt
+                com/anatawa12/fixRtm/DummyModelPackManager
+                + 2 Maps.kt
+                kotlin/collections/MapsKt__MapsKt
+                + 3 fake.kt
+                kotlin/jvm/internal/FakeKt
+                *L
+                1#1,86:1
+                355#2,7:87
+                1#3:94
+                *S KotlinDebug
+                *F
+                + 1 DummyModelPackManager.kt
+                com/anatawa12/fixRtm/DummyModelPackManager
+                *L
+                23#1:87,7
+                *E
+                
+            """.trimIndent()
+
+            val parsed = SMAPParser(smap).readSMAP()
+
+            parsed shouldBe SMAP(
+                "DummyModelPackManager.kt", "Kotlin",
+                SMAPStratum(
+                    "Kotlin",
+                    SMAPFileSection(
+                        SMAPFileInfo(1, "DummyModelPackManager.kt", "com/anatawa12/fixRtm/DummyModelPackManager"),
+                        SMAPFileInfo(2, "Maps.kt", "kotlin/collections/MapsKt__MapsKt"),
+                        SMAPFileInfo(3, "fake.kt", "kotlin/jvm/internal/FakeKt"),
+                    ),
+                    SMAPLineSection(
+                        SMAPLineInfo(1, 1, 86, 1, -1),
+                        SMAPLineInfo(355, 2, 7, 87, -1),
+                        SMAPLineInfo(1, 3, -1, 94, -1),
+                    ),
+                ),
+                SMAPStratum(
+                    "KotlinDebug",
+                    SMAPFileSection(
+                        SMAPFileInfo(1, "DummyModelPackManager.kt", "com/anatawa12/fixRtm/DummyModelPackManager"),
+                    ),
+                    SMAPLineSection(
+                        SMAPLineInfo(23, 1, -1, 87, 7),
+                    ),
+                ),
+            )
+
+            buildString { parsed.appendTo(this) } shouldBe smap
+        }
     }
 })

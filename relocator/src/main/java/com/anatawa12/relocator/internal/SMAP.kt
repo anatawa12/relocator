@@ -65,6 +65,7 @@ internal class SMAPParser(private val string: String) {
     private fun unexpectedChar(c: Char): Nothing = error("unexpected char: '$c'")
 
     private fun readInt(): Int {
+        skipWS()
         val begin = index
         var result = 0
         while (true) {
