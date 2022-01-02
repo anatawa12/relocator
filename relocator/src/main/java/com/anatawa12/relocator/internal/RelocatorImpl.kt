@@ -34,6 +34,7 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
     val relocators = listOf<ClassRelocator>(
         SimpleClassRelocator(mapping),
         KotlinMetadataRemovingRelocator(mapping),
+        SMAPRelocator(mapping),
     )
 
     suspend fun run(): Unit = coroutineScope {

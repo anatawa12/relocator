@@ -19,6 +19,14 @@ class RelocationMapping {
         return null
     }
 
+    fun mapFilePath(name: String): String? {
+        // TODO use mapping by Relocator
+        if (name.startsWith("kotlin/")) {
+            return "relocated/kotlin/" + name.removePrefix("kotlin/")
+        }
+        return null
+    }
+
     fun mapClassSignature(signature: ClassSignature): ClassSignature? {
         val mappedTypes = mapList(signature.typeParameters, ::mapTypeParameter)
         val mappedClass = mapTypeSignature(signature.superClass)
