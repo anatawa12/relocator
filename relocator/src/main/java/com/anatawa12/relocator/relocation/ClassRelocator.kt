@@ -1,15 +1,21 @@
 package com.anatawa12.relocator.relocation
 
-import com.anatawa12.relocator.classes.ClassField
-import com.anatawa12.relocator.classes.ClassFile
-import com.anatawa12.relocator.classes.ClassMethod
-import com.anatawa12.relocator.classes.ClassRecordField
+import com.anatawa12.relocator.classes.*
 
-interface ClassRelocator {
-    fun relocate(classFile: ClassFile)
-    fun relocate(method: ClassMethod)
-    fun relocate(field: ClassField)
-    fun relocate(recordField: ClassRecordField)
+abstract class ClassRelocator {
+    open fun relocate(classFile: ClassFile) = Unit
+    open fun relocate(method: ClassMethod) = Unit
+    open fun relocate(field: ClassField) = Unit
+    open fun relocate(recordField: ClassRecordField) = Unit
+    open fun relocate(annotation: ClassAnnotation, visible: Boolean, location: AnnotationLocation) = Unit
+
+    open fun relocate(annotation: ClassTypeAnnotation, visible: Boolean, location: TypeAnnotationLocation) {
+        relocate(annotation.annotation, visible, AnnotationLocation.TypeAnnotation(annotation, location))
+    }
+
+    open fun relocate(annotation: ClassLocalVariableAnnotation, visible: Boolean, location: ClassCode) {
+        relocate(annotation.annotation, visible, AnnotationLocation.LocalVariable(annotation, location))
+    }
 }
 
 fun interface ClassRelocatorProvider {

@@ -18,6 +18,8 @@ import org.objectweb.asm.Opcodes.ACC_NATIVE
 import org.objectweb.asm.Opcodes.ACC_VARARGS
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import com.anatawa12.relocator.relocation.AnnotationLocation as AnnLoc
+import com.anatawa12.relocator.relocation.TypeAnnotationLocation as TAnnLoc
 
 internal class RelocatingEnvironment(val relocator: Relocator) {
     lateinit var refers: ReferencesClassPath
@@ -113,22 +115,74 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
     private suspend fun relocateClasses() = TaskQueue {
         for (classFile in classes) {
             start {
-                for (relocator in relocators)
-                    relocator.relocate(classFile)
-                relocate(classFile.fields, ClassRelocator::relocate)
-                relocate(classFile.methods, ClassRelocator::relocate)
-                relocate(classFile.recordFields, ClassRelocator::relocate)
+                runRelocator(classFile, ClassRelocator::relocate)
+                classFile.fields.forEach { relocateField(it) }
+                classFile.methods.forEach { relocateMethod(it) }
+                classFile.recordFields.forEach { relocateRecordField(it) }
             }
         }
     }
 
-    private fun <T> TaskQueue.relocate(list: List<T>, relocate: ClassRelocator.(T) -> Unit) {
-        for (element in list) {
-            start {
-                for (relocator in relocators)
-                    relocator.relocate(element)
-            }
+    private fun TaskQueue.relocateField(field: ClassField) = start {
+        runRelocator(field, ClassRelocator::relocate)
+        relocateAnnotations(field.visibleAnnotations, true, AnnLoc.Field(field), ClassRelocator::relocate)
+        relocateAnnotations(field.invisibleAnnotations, false, AnnLoc.Field(field), ClassRelocator::relocate)
+        relocateAnnotations(field.visibleTypeAnnotations, true, TAnnLoc.Field(field), ClassRelocator::relocate)
+        relocateAnnotations(field.invisibleTypeAnnotations, false, TAnnLoc.Field(field), ClassRelocator::relocate)
+    }
+
+    private fun TaskQueue.relocateMethod(method: ClassMethod) = start {
+        runRelocator(method, ClassRelocator::relocate)
+        relocateAnnotations(method.visibleAnnotations, true, AnnLoc.Method(method), ClassRelocator::relocate)
+        relocateAnnotations(method.invisibleAnnotations, false, AnnLoc.Method(method), ClassRelocator::relocate)
+        relocateAnnotations(method.visibleTypeAnnotations, true, TAnnLoc.Method(method), ClassRelocator::relocate)
+        relocateAnnotations(method.invisibleTypeAnnotations, false, TAnnLoc.Method(method), ClassRelocator::relocate)
+        for ((i, visibleParameterAnnotationList) in method.visibleParameterAnnotations.withIndex())
+            visibleParameterAnnotationList
+                ?.let { relocateAnnotations(it, true, AnnLoc.Parameter(method, i), ClassRelocator::relocate) }
+        for ((i, invisibleParameterAnnotationList) in method.invisibleParameterAnnotations.withIndex())
+            invisibleParameterAnnotationList
+                ?.let { relocateAnnotations(it, false, AnnLoc.Parameter(method, i), ClassRelocator::relocate) }
+        method.classCode?.let { relocateClassCode(it) }
+    }
+
+    private fun TaskQueue.relocateClassCode(code: ClassCode) {
+        for (insn in code.instructions) {
+            relocateAnnotations(insn.visibleAnnotations, false, TAnnLoc.Insn(insn, code), ClassRelocator::relocate)
+            relocateAnnotations(insn.invisibleAnnotations, true, TAnnLoc.Insn(insn, code), ClassRelocator::relocate)
         }
+        for (tryCatchBlock in code.tryCatchBlocks) {
+            relocateAnnotations(tryCatchBlock.visibleAnnotations, false,
+                TAnnLoc.TryCatchBlock(tryCatchBlock, code), ClassRelocator::relocate)
+            relocateAnnotations(tryCatchBlock.invisibleAnnotations, true,
+                TAnnLoc.TryCatchBlock(tryCatchBlock, code), ClassRelocator::relocate)
+        }
+        relocateAnnotations(code.visibleLocalVariableAnnotations, false, code, ClassRelocator::relocate)
+        relocateAnnotations(code.invisibleLocalVariableAnnotations, true, code, ClassRelocator::relocate)
+    }
+
+    private fun TaskQueue.relocateRecordField(field: ClassRecordField) = start {
+        runRelocator(field, ClassRelocator::relocate)
+        relocateAnnotations(field.invisibleAnnotations, false, AnnLoc.RecordField(field), ClassRelocator::relocate)
+        relocateAnnotations(field.visibleAnnotations, true, AnnLoc.RecordField(field), ClassRelocator::relocate)
+        relocateAnnotations(field.invisibleTypeAnnotations, false, TAnnLoc.RecordField(field), ClassRelocator::relocate)
+        relocateAnnotations(field.visibleTypeAnnotations, true, TAnnLoc.RecordField(field), ClassRelocator::relocate)
+    }
+
+    private inline fun <A, L> TaskQueue.relocateAnnotations(
+        annotations: List<A>,
+        visible: Boolean,
+        location: L,
+        crossinline relocate: ClassRelocator.(A, Boolean, L) -> Unit
+    ) {
+        for (invisibleAnnotation in annotations) start {
+            for (relocator in relocators) relocator.relocate(invisibleAnnotation, visible, location)
+        }
+    }
+
+    private inline fun <T> runRelocator(value: T, crossinline relocate: ClassRelocator.(T) -> Unit) {
+        for (relocator in relocators)
+            relocator.relocate(value)
     }
 }
 
