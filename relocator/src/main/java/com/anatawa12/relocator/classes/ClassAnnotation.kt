@@ -70,4 +70,6 @@ class AnnotationArray(values: List<AnnotationValue>) : AnnotationValue(), List<A
     constructor(values: DoubleArray): this(values.map(::AnnotationDouble))
 
     override fun toString(): String = values.joinToString()
+    override fun equals(other: Any?): Boolean = values == other
+    override fun hashCode(): Int = values.hashCode()
 }
