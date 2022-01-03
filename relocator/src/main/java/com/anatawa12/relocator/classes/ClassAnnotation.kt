@@ -57,8 +57,9 @@ class AnnotationClass(var descriptor: TypeDescriptor) : AnnotationValue() {
     constructor(descriptor: String) : this(TypeDescriptor(descriptor))
     override fun toString(): String = "class $descriptor"
 }
-class AnnotationArray(values: List<AnnotationValue>) : AnnotationValue(), List<AnnotationValue> by values {
-    val values = values.toMutableList()
+ class AnnotationArray private constructor(val values: List<AnnotationValue>, marker: Int) :
+    AnnotationValue(), List<AnnotationValue> by values {
+    constructor(values: List<AnnotationValue>): this(values.toMutableList(), 0)
     constructor(vararg values: AnnotationValue): this(values.asList())
     constructor(values: ByteArray): this(values.map(::AnnotationByte))
     constructor(values: BooleanArray): this(values.map(::AnnotationBoolean))
