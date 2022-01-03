@@ -3,12 +3,13 @@ package com.anatawa12.relocator.internal
 import com.anatawa12.relocator.classes.*
 import com.anatawa12.relocator.relocation.AnnotationLocation
 import com.anatawa12.relocator.relocation.ClassRelocator
+import com.anatawa12.relocator.relocation.RelocateResult
 import com.anatawa12.relocator.relocation.RelocationMapping
 
 class SimpleClassRelocator(
     val mapping: RelocationMapping
 ) : ClassRelocator() {
-    override fun relocate(classFile: ClassFile) {
+    override fun relocate(classFile: ClassFile): RelocateResult {
         classFile.name.let(mapping::mapClass)?.let { classFile.name = it }
         classFile.signature?.let(mapping::mapClassSignature)?.let { classFile.signature = it }
         classFile.superName?.let(mapping::mapClassRef)?.let { classFile.superName = it }
@@ -22,14 +23,16 @@ class SimpleClassRelocator(
         classFile.nestHostClass?.let(mapping::mapClassRef)?.let { classFile.nestHostClass = it }
         classFile.nestMembers.replaceAll { mapping.mapClassRef(it) ?: it }
         classFile.permittedSubclasses.replaceAll { mapping.mapClassRef(it) ?: it }
+        return RelocateResult.Continue
     }
 
-    override fun relocate(method: ClassMethod) {
+    override fun relocate(method: ClassMethod): RelocateResult {
         method.descriptor.let(mapping::mapMethodDescriptor)?.let { method.descriptor = it }
         method.signature?.let(mapping::mapMethodSignature)?.let { method.signature = it }
         method.exceptions.replaceAll { mapping.mapClassRef(it) ?: it }
         method.annotationDefault?.let { AnnotationWalkerImpl.walkAnnotationValue(mapping, it) }
         method.classCode?.let(::relocateCode)
+        return RelocateResult.Continue
     }
 
     private fun relocateCode(code: ClassCode) {
@@ -81,19 +84,22 @@ class SimpleClassRelocator(
         else -> null
     }
 
-    override fun relocate(field: ClassField) {
+    override fun relocate(field: ClassField): RelocateResult {
         field.descriptor.let(mapping::mapTypeDescriptor)?.let { field.descriptor = it }
         field.signature?.let(mapping::mapTypeSignature)?.let { field.signature = it }
         field.value?.let(mapping::mapConstant)?.let { field.value = it }
+        return RelocateResult.Continue
     }
 
-    override fun relocate(recordField: ClassRecordField) {
+    override fun relocate(recordField: ClassRecordField): RelocateResult {
         recordField.descriptor.let(mapping::mapTypeDescriptor)?.let { recordField.descriptor = it }
         recordField.signature?.let(mapping::mapTypeSignature)?.let { recordField.signature = it }
+        return RelocateResult.Continue
     }
 
-    override fun relocate(annotation: ClassAnnotation, visible: Boolean, location: AnnotationLocation) {
+    override fun relocate(annotation: ClassAnnotation, visible: Boolean, location: AnnotationLocation): RelocateResult {
         AnnotationWalkerImpl.walkClassAnnotation(mapping, annotation)
+        return RelocateResult.Continue
     }
 
     private object AnnotationWalkerImpl : AnnotationWalker<RelocationMapping>() {

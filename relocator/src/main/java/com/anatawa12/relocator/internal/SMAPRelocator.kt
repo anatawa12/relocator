@@ -2,12 +2,13 @@ package com.anatawa12.relocator.internal
 
 import com.anatawa12.relocator.classes.*
 import com.anatawa12.relocator.relocation.ClassRelocator
+import com.anatawa12.relocator.relocation.RelocateResult
 import com.anatawa12.relocator.relocation.RelocationMapping
 
 class SMAPRelocator(
     val mapping: RelocationMapping
 ) : ClassRelocator() {
-    override fun relocate(classFile: ClassFile) {
+    override fun relocate(classFile: ClassFile): RelocateResult {
         classFile.sourceDebug?.let { debug ->
             if (debug.startsWith("SMAP")) {
                 val smap = SMAPParser(debug).readSMAP()
@@ -15,6 +16,7 @@ class SMAPRelocator(
                 classFile.sourceDebug = buildString { smap.appendTo(this) }
             }
         }
+        return RelocateResult.Continue
     }
 
     private fun relocateSMAP(smap: SMAP) {
@@ -28,14 +30,5 @@ class SMAPRelocator(
             }
             is SMAPVendorSection -> {}
         }
-    }
-
-    override fun relocate(method: ClassMethod) {
-    }
-
-    override fun relocate(field: ClassField) {
-    }
-
-    override fun relocate(recordField: ClassRecordField) {
     }
 }

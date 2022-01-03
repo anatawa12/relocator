@@ -1,17 +1,15 @@
 package com.anatawa12.relocator.internal
 
 import com.anatawa12.relocator.classes.*
-import com.anatawa12.relocator.relocation.AnnotationLocation
-import com.anatawa12.relocator.relocation.ClassRelocator
-import com.anatawa12.relocator.relocation.RelocationMapping
-import com.anatawa12.relocator.relocation.TypeAnnotationLocation
+import com.anatawa12.relocator.relocation.*
 
 class StringClassRelocator(
     val mapping: RelocationMapping
 ) : ClassRelocator() {
-    override fun relocate(method: ClassMethod) {
+    override fun relocate(method: ClassMethod): RelocateResult {
         method.annotationDefault?.let { AnnotationWalkerImpl.walkAnnotationValue(this, it) }
         method.classCode?.let(::relocateCode)
+        return RelocateResult.Continue
     }
 
     private fun relocateCode(code: ClassCode) {
@@ -22,8 +20,9 @@ class StringClassRelocator(
         if (insn is LdcInsn) insn.value = ConstantMapperImpl.mapConstant(this, insn.value)
     }
 
-    override fun relocate(annotation: ClassAnnotation, visible: Boolean, location: AnnotationLocation) {
+    override fun relocate(annotation: ClassAnnotation, visible: Boolean, location: AnnotationLocation): RelocateResult {
         AnnotationWalkerImpl.walkClassAnnotation(this, annotation)
+        return RelocateResult.Continue
     }
 
     private fun mapString(string: String): String? {
