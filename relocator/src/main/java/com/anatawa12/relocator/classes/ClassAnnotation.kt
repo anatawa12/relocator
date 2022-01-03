@@ -23,31 +23,31 @@ class ClassAnnotation : AnnotationValue {
     override fun toString(): String = "@${annotationClass}(${values.joinToString { "${it.key}=${it.value}" }})"
 }
 
-class AnnotationByte(val value: Byte) : AnnotationValue() {
+class AnnotationByte(var value: Byte) : AnnotationValue() {
     override fun toString(): String = "byte $value"
 }
-class AnnotationBoolean(val value: Boolean) : AnnotationValue() {
+class AnnotationBoolean(var value: Boolean) : AnnotationValue() {
     override fun toString(): String = "boolean $value"
 }
-class AnnotationChar(val value: Char) : AnnotationValue() {
+class AnnotationChar(var value: Char) : AnnotationValue() {
     override fun toString(): String = "char $value"
 }
-class AnnotationShort(val value: Short) : AnnotationValue() {
+class AnnotationShort(var value: Short) : AnnotationValue() {
     override fun toString(): String = "short $value"
 }
-class AnnotationInt(val value: Int) : AnnotationValue() {
+class AnnotationInt(var value: Int) : AnnotationValue() {
     override fun toString(): String = "int $value"
 }
-class AnnotationLong(val value: Long) : AnnotationValue() {
+class AnnotationLong(var value: Long) : AnnotationValue() {
     override fun toString(): String = "long $value"
 }
-class AnnotationFloat(val value: Float) : AnnotationValue() {
+class AnnotationFloat(var value: Float) : AnnotationValue() {
     override fun toString(): String = "float $value"
 }
-class AnnotationDouble(val value: Double) : AnnotationValue() {
+class AnnotationDouble(var value: Double) : AnnotationValue() {
     override fun toString(): String = "double $value"
 }
-class AnnotationString(val value: String) : AnnotationValue() {
+class AnnotationString(var value: String) : AnnotationValue() {
     override fun toString(): String = "string $value"
 }
 class AnnotationEnum(var owner: ClassReference, val value: String) : AnnotationValue() {
