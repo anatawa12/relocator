@@ -6,7 +6,7 @@ import com.anatawa12.relocator.relocation.RelocationMapping
 
 class SMAPRelocator(
     val mapping: RelocationMapping
-) : ClassRelocator {
+) : ClassRelocator() {
     override fun relocate(classFile: ClassFile) {
         classFile.sourceDebug?.let { debug ->
             if (debug.startsWith("SMAP")) {
