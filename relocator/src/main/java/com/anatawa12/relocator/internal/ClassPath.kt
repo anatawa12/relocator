@@ -74,6 +74,7 @@ internal class EmbeddableClassPath(files: List<File>): ClassPath(files) {
                         classTree[name] = ClassFile.read(loadFile(path)!!, this@EmbeddableClassPath)
                     }
                 }
+                .toList()
                 .forEach { it.join() }
         }
     }

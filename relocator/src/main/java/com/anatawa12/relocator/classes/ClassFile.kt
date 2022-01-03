@@ -222,7 +222,7 @@ class ClassMethod private constructor(
     val allReferences get() = references + externalReferences
     private val owner = atomic<ClassFile?>(null)
 
-    var classCode: ClassCode? = ownerAccessorClassCode.preInit(this, classCode)
+    var classCode: ClassCode? = classCode?.let { ownerAccessorClassCode.preInit(this, it) }
        set(value) = ownerAccessorClassCode.doSet(this, field, value) { field = it }
     private var attrNames = emptyList<String>()
     
