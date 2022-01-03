@@ -36,6 +36,7 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
     val relocators = listOf<ClassRelocator>(
         SimpleClassRelocator(mapping),
         KotlinMetadataRemovingRelocator(mapping),
+        StringClassRelocator(mapping),
         SMAPRelocator(mapping),
     )
 
