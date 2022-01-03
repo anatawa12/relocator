@@ -127,37 +127,22 @@ class RelocationMapping {
 
     /////////
 
-    fun mapConstant(value: Constant): Constant? = when (value) {
-        is ConstantDouble -> null
-        is ConstantFloat -> null
-        is ConstantInt -> null
-        is ConstantLong -> null
-        is ConstantString -> null
-        is ConstantClass -> mapTypeDescriptor(value.descriptor)?.let(::ConstantClass)
+    fun mapConstant(value: Constant): Constant? = CMapper.mapConstant(this, value).takeUnless { it === value }
 
-        is ConstantDynamic -> mapConstantDynamic(value)
-        is ConstantMethodType -> mapMethodDescriptor(value.descriptor)?.let(::ConstantMethodType)
+    fun mapConstantDynamic(value: ConstantDynamic): ConstantDynamic? =
+        CMapper.mapConstantDynamic(this, value).takeUnless { it === value }
 
-        is ConstantFieldHandle -> mapConstantHandle(value)
-        is ConstantMethodHandle -> mapConstantHandle(value)
-    }
+    fun mapConstantHandle(value: ConstantHandle): ConstantHandle? =
+        CMapper.mapConstantHandle(this, value).takeUnless { it === value }
 
-    fun mapConstantDynamic(value: ConstantDynamic): ConstantDynamic? {
-        val mappedDesc = mapMethodDescriptor(value.descriptor)
-        val mappedHandle = mapConstantHandle(value.bootstrapMethod)
-        val mappedArgs = mapList(value.args, ::mapConstant)
-        if (mappedDesc == null && mappedHandle == null && mappedArgs == null) return null
-        return ConstantDynamic(
-            value.name,
-            mappedDesc ?: value.descriptor,
-            mappedHandle ?: value.bootstrapMethod,
-            mappedArgs ?: value.args,
-        )
-    }
-
-    fun mapConstantHandle(value: ConstantHandle): ConstantHandle? = when (value) {
-        is ConstantFieldHandle -> mapFieldRef(value.field)?.let { ConstantFieldHandle(value.type, it) }
-        is ConstantMethodHandle -> mapMethodRef(value.method)
-            ?.let { ConstantMethodHandle(value.type, it, value.isInterface) }
+    private object CMapper : ConstantMapper<RelocationMapping>() {
+        override fun mapConstantClass(attachment: RelocationMapping, value: ConstantClass): ConstantClass {
+            return attachment.mapTypeDescriptor(value.descriptor)?.let(::ConstantClass) ?: value
+        }
+        override fun mapConstantFieldHandle(attachment: RelocationMapping, value: ConstantFieldHandle) =
+            attachment.mapFieldRef(value.field)?.let { ConstantFieldHandle(value.type, it) } ?: value
+        override fun mapConstantMethodHandle(attachment: RelocationMapping, value: ConstantMethodHandle) =
+            attachment.mapMethodRef(value.method)?.let { ConstantMethodHandle(value.type, it, value.isInterface) }
+                ?: value
     }
 }
