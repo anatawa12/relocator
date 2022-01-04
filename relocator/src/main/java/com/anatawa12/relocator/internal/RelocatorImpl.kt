@@ -120,6 +120,14 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
                 classFile.fields.forEach { relocateField(classFile.fields, it) }
                 classFile.methods.forEach { relocateMethod(classFile.methods, it) }
                 classFile.recordFields.forEach { relocateRecordField(classFile.recordFields, it) }
+                relocateAnnotations(classFile.visibleAnnotations, true, AnnLoc.Class(classFile),
+                    ClassRelocator::relocate)
+                relocateAnnotations(classFile.invisibleAnnotations, false, AnnLoc.Class(classFile),
+                    ClassRelocator::relocate)
+                relocateAnnotations(classFile.visibleTypeAnnotations, true, TAnnLoc.Class(classFile),
+                    ClassRelocator::relocate)
+                relocateAnnotations(classFile.invisibleTypeAnnotations, false, TAnnLoc.Class(classFile),
+                    ClassRelocator::relocate)
             }
         }
     }
