@@ -2,18 +2,18 @@ package com.anatawa12.relocator.classes;
 
 import com.anatawa12.relocator.internal.DescriptorSignatures;
 import com.anatawa12.relocator.internal.InternalAccessorKt;
+import com.anatawa12.relocator.internal.RelocationMappingPrimitiveMarker;
 import kotlin.annotations.jvm.Mutable;
 import kotlin.annotations.jvm.ReadOnly;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
-public final class TypeParameter {
+public final class TypeParameter implements RelocationMappingPrimitiveMarker {
     private final @NotNull String name;
     private final @Nullable TypeSignature classBound;
 

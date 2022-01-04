@@ -2,6 +2,7 @@ package com.anatawa12.relocator.classes;
 
 import com.anatawa12.relocator.internal.DescriptorSignatures;
 import com.anatawa12.relocator.internal.InternalAccessorKt;
+import com.anatawa12.relocator.internal.RelocationMappingPrimitiveMarker;
 import kotlin.annotations.jvm.Mutable;
 import kotlin.annotations.jvm.ReadOnly;
 import org.jetbrains.annotations.NotNull;
@@ -12,7 +13,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
-public final class MethodSignature {
+public final class MethodSignature implements RelocationMappingPrimitiveMarker {
     @ReadOnly
     private final @NotNull List<@NotNull TypeParameter> typeParameters;
     @ReadOnly

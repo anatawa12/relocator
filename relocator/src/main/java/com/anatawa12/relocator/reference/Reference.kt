@@ -4,6 +4,7 @@ import com.anatawa12.relocator.classes.*
 import com.anatawa12.relocator.diagnostic.Location
 import com.anatawa12.relocator.internal.newTypeDescriptorInternal
 import com.anatawa12.relocator.internal.owner
+import com.anatawa12.relocator.internal.RelocationMappingPrimitiveMarker
 
 // TODO: replace ClassRefence in method/field to another InernalName class
 
@@ -19,7 +20,7 @@ internal fun <R: Reference> R.withLocation(location: Location?) = apply { if (lo
  */
 class ClassReference(
     name: String,
-): Reference() {
+): Reference(), RelocationMappingPrimitiveMarker {
     fun isArray() = name[0] == '['
 
     val arrayDimensions get() = name.indexOfFirst { it != '[' }
@@ -63,7 +64,7 @@ class MethodReference(
      * The descriptor of the method.
      */
     val descriptor: MethodDescriptor,
-): Reference() {
+): Reference(), RelocationMappingPrimitiveMarker {
     constructor(owner: String, name: String, descriptor: MethodDescriptor) :
             this(ClassReference(owner), name, descriptor)
     constructor(owner: ClassReference, name: String, descriptor: String) :
@@ -166,7 +167,7 @@ class FieldReference(
      * The descriptor of the field.
      */
     val descriptor: TypeDescriptor,
-): Reference() {
+): Reference(), RelocationMappingPrimitiveMarker {
     constructor(owner: String, name: String, descriptor: TypeDescriptor) :
             this(ClassReference(owner), name, descriptor)
     constructor(owner: String, name: String, descriptor: String) :

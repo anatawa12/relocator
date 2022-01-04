@@ -1,7 +1,6 @@
 package com.anatawa12.relocator.classes
 
 import com.anatawa12.relocator.internal.*
-import com.anatawa12.relocator.internal.TypeKind
 import com.anatawa12.relocator.reference.ClassReference
 
 abstract class AnyMethodDescriptor(val descriptor: String) {
@@ -12,7 +11,7 @@ abstract class AnyMethodDescriptor(val descriptor: String) {
     }
 }
 
-class MethodDescriptor(descriptor: String) : AnyMethodDescriptor(descriptor) {
+class MethodDescriptor(descriptor: String) : AnyMethodDescriptor(descriptor), RelocationMappingPrimitiveMarker {
     constructor(returns: TypeDescriptor, vararg args: TypeDescriptor) :
             this(returns, args.asList())
     constructor(returns: TypeDescriptor, args: List<TypeDescriptor>) :
@@ -68,7 +67,7 @@ class PartialMethodDescriptor(descriptor: String) : AnyMethodDescriptor(descript
     override fun toString(): String = descriptor
 }
 
-class TypeDescriptor {
+class TypeDescriptor : RelocationMappingPrimitiveMarker {
     val descriptor: String
     // TODO: add ofClass and primitive constants with converting to java
 

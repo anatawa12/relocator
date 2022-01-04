@@ -2,6 +2,7 @@ package com.anatawa12.relocator.classes;
 
 import com.anatawa12.relocator.internal.DescriptorSignatures;
 import com.anatawa12.relocator.internal.InternalAccessorKt;
+import com.anatawa12.relocator.internal.RelocationMappingPrimitiveMarker;
 import com.anatawa12.relocator.internal.TypeKind;
 import kotlin.annotations.jvm.ReadOnly;
 import kotlin.collections.CollectionsKt;
@@ -18,7 +19,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 
 @SuppressWarnings("StaticInitializerReferencesSubClass")
-public abstract class TypeSignature {
+public abstract class TypeSignature implements RelocationMappingPrimitiveMarker {
     @NotNull
     abstract String getSignature();
 

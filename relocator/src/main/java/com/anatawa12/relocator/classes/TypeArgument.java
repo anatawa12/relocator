@@ -1,11 +1,12 @@
 package com.anatawa12.relocator.classes;
 
+import com.anatawa12.relocator.internal.RelocationMappingPrimitiveMarker;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Objects;
 
-public final class TypeArgument {
+public final class TypeArgument implements RelocationMappingPrimitiveMarker {
     private final @Nullable TypeSignature type;
     private final @NotNull TypeVariant variant;
 

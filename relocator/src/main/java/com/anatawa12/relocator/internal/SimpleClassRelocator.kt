@@ -69,9 +69,10 @@ class SimpleClassRelocator(
             is TypeInsn -> mapping.mapClassRef(insn.type)?.let { insn.type = it }
             is FieldInsn -> mapping.mapFieldRef(insn.field)?.let { insn.field = it }
             is MethodInsn -> mapping.mapMethodRef(insn.method)?.let { insn.method = it }
-            is InvokeDynamicInsn -> mapping.mapConstantDynamic(insn.target)?.let { insn.target = it }
+            is InvokeDynamicInsn -> RelocationMapping.ConstantMapper.mapConstantDynamic(mapping, insn.target)
+                .let { insn.target = it }
             is JumpInsn -> Unit
-            is LdcInsn -> mapping.mapConstant(insn.value)?.let { insn.value = it }
+            is LdcInsn -> RelocationMapping.ConstantMapper.mapConstant(mapping, insn.value).let { insn.value = it }
             is IIncInsn -> Unit
             is TableSwitchInsn -> Unit
             is LookupSwitchInsn -> Unit
@@ -87,7 +88,7 @@ class SimpleClassRelocator(
     override fun relocate(field: ClassField): RelocateResult {
         field.descriptor.let(mapping::mapTypeDescriptor)?.let { field.descriptor = it }
         field.signature?.let(mapping::mapTypeSignature)?.let { field.signature = it }
-        field.value?.let(mapping::mapConstant)?.let { field.value = it }
+        field.value?.let { RelocationMapping.ConstantMapper.mapConstant(mapping, it) }?.let { field.value = it }
         return RelocateResult.Continue
     }
 
