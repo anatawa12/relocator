@@ -104,7 +104,7 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
     }
 
     private suspend fun listUpClasses() = TaskQueue {
-        classes = (embeds.classes + roots.classes).filter { it.included }
+        classes = (embeds.classes + roots.classes).filter { it.included }.toMutableList()
         for (classFile in classes) {
             start {
                 classFile.fields.removeIf { !it.included }
@@ -116,24 +116,24 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
     private suspend fun relocateClasses() = TaskQueue {
         for (classFile in classes) {
             start {
-                runRelocator(classFile, ClassRelocator::relocate)
-                classFile.fields.forEach { relocateField(it) }
-                classFile.methods.forEach { relocateMethod(it) }
-                classFile.recordFields.forEach { relocateRecordField(it) }
+                runRelocator(classes, classFile, ClassRelocator::relocate)
+                classFile.fields.forEach { relocateField(classFile.fields, it) }
+                classFile.methods.forEach { relocateMethod(classFile.methods, it) }
+                classFile.recordFields.forEach { relocateRecordField(classFile.recordFields, it) }
             }
         }
     }
 
-    private fun TaskQueue.relocateField(field: ClassField) = start {
-        runRelocator(field, ClassRelocator::relocate)
+    private fun TaskQueue.relocateField(list: MutableCollection<ClassField>, field: ClassField) = start {
+        runRelocator(list, field, ClassRelocator::relocate)
         relocateAnnotations(field.visibleAnnotations, true, AnnLoc.Field(field), ClassRelocator::relocate)
         relocateAnnotations(field.invisibleAnnotations, false, AnnLoc.Field(field), ClassRelocator::relocate)
         relocateAnnotations(field.visibleTypeAnnotations, true, TAnnLoc.Field(field), ClassRelocator::relocate)
         relocateAnnotations(field.invisibleTypeAnnotations, false, TAnnLoc.Field(field), ClassRelocator::relocate)
     }
 
-    private fun TaskQueue.relocateMethod(method: ClassMethod) = start {
-        runRelocator(method, ClassRelocator::relocate)
+    private fun TaskQueue.relocateMethod(list: MutableCollection<ClassMethod>, method: ClassMethod) = start {
+        runRelocator(list, method, ClassRelocator::relocate)
         relocateAnnotations(method.visibleAnnotations, true, AnnLoc.Method(method), ClassRelocator::relocate)
         relocateAnnotations(method.invisibleAnnotations, false, AnnLoc.Method(method), ClassRelocator::relocate)
         relocateAnnotations(method.visibleTypeAnnotations, true, TAnnLoc.Method(method), ClassRelocator::relocate)
@@ -162,8 +162,11 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
         relocateAnnotations(code.invisibleLocalVariableAnnotations, true, code, ClassRelocator::relocate)
     }
 
-    private fun TaskQueue.relocateRecordField(field: ClassRecordField) = start {
-        runRelocator(field, ClassRelocator::relocate)
+    private fun TaskQueue.relocateRecordField(
+        list: MutableCollection<ClassRecordField>,
+        field: ClassRecordField,
+    ) = start {
+        runRelocator(list, field, ClassRelocator::relocate)
         relocateAnnotations(field.invisibleAnnotations, false, AnnLoc.RecordField(field), ClassRelocator::relocate)
         relocateAnnotations(field.visibleAnnotations, true, AnnLoc.RecordField(field), ClassRelocator::relocate)
         relocateAnnotations(field.invisibleTypeAnnotations, false, TAnnLoc.RecordField(field), ClassRelocator::relocate)
@@ -171,19 +174,44 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
     }
 
     private inline fun <A, L> TaskQueue.relocateAnnotations(
-        annotations: List<A>,
+        annotations: MutableList<A>,
         visible: Boolean,
         location: L,
-        crossinline relocate: ClassRelocator.(A, Boolean, L) -> Unit
+        crossinline relocate: ClassRelocator.(A, Boolean, L) -> RelocateResult
     ) {
-        for (invisibleAnnotation in annotations) start {
-            for (relocator in relocators) relocator.relocate(invisibleAnnotation, visible, location)
+        for (annotation in annotations) start {
+            for (relocator in relocators) {
+                when (relocator.relocate(annotation, visible, location)) {
+                    RelocateResult.Continue -> continue
+                    RelocateResult.Finish -> return@start
+                    RelocateResult.Remove -> {
+                        removeQueue.add { annotations.remove(annotation) }
+                        return@start
+                    }
+                }
+            }
         }
     }
 
-    private inline fun <T> runRelocator(value: T, crossinline relocate: ClassRelocator.(T) -> Unit) {
-        for (relocator in relocators)
-            relocator.relocate(value)
+    private inline fun <T> runRelocator(
+        list: MutableCollection<T>,
+        value: T,
+        crossinline relocate: ClassRelocator.(T) -> RelocateResult,
+    ) {
+        for (relocator in relocators) {
+            when (relocator.relocate(value)) {
+                RelocateResult.Continue -> continue
+                RelocateResult.Finish -> return
+                RelocateResult.Remove -> {
+                    removeQueue.add { list.remove(value) }
+                    return
+                }
+            }
+        }
+        return
+    }
+
+    private fun runRemoveQueue() {
     }
 }
 
