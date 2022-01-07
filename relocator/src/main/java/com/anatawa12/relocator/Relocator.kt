@@ -74,13 +74,26 @@ class Relocator {
     /**
      * @implSpec the map is ordered by length of package
      */
-    private val relocateMapping: SortedMap<String, String?> = TreeMap(
+    private val _relocateMapping: SortedMap<String, String?> = TreeMap(
         Comparator.comparingInt { obj: String -> obj.length }.reversed()
             .thenComparing(Function.identity()))
 
+    val relocateMapping: Map<String, String?> = Collections.unmodifiableMap(_relocateMapping)
+
     fun addRelocateMapping(relocateFrom: String, relocateTo: String) {
-        check(relocateMapping.putIfAbsent(relocateFrom,
-            relocateTo) == null) { "relocation for $relocateFrom already exists." }
+        val normalizedFrom = normalizeMapValue(relocateFrom)
+        val normalizedTo = normalizeMapValue(relocateTo)
+        check(_relocateMapping.putIfAbsent(normalizedFrom, normalizedTo) == null) {
+            "relocation for $relocateFrom already exists."
+        }
+    }
+
+    private fun normalizeMapValue(input: String): String {
+        var normalized = input
+        normalized = normalized.replace('.', '/')
+        if (normalized.endsWith('/')) normalized = normalized.substring(0, normalized.length - 1)
+        if (normalized.startsWith('/')) normalized = normalized.substring(1)
+        return normalized
     }
 
     /**

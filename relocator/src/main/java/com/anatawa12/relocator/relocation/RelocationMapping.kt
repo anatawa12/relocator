@@ -11,19 +11,16 @@ import com.anatawa12.relocator.reference.FieldReference
 import com.anatawa12.relocator.reference.MethodReference
 import java.util.*
 
-class RelocationMapping {
+class RelocationMapping(private val relocationMap: Map<String, String?>) {
     fun mapClass(name: String): String? {
-        // TODO use mapping by Relocator
-        if (name.startsWith("kotlin/")) {
-            return "relocated/kotlin/" + name.removePrefix("kotlin/")
-        }
-        return null
+        return mapFilePath(name)
     }
 
     fun mapFilePath(name: String): String? {
-        // TODO use mapping by Relocator
-        if (name.startsWith("kotlin/")) {
-            return "relocated/kotlin/" + name.removePrefix("kotlin/")
+        for ((from, mapTo) in relocationMap) {
+            if (name == from) return mapTo
+            if (name.startsWith(from) && from.getOrElse(from.length) { '\u0000' } == '/')
+                return mapTo + name.substring(from.length)
         }
         return null
     }

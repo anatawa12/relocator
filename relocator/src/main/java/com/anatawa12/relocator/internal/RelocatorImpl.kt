@@ -11,6 +11,7 @@ import com.anatawa12.relocator.internal.BasicDiagnostics.UNRESOLVABLE_METHOD
 import com.anatawa12.relocator.reference.*
 import com.anatawa12.relocator.reference.withLocation
 import com.anatawa12.relocator.relocation.ClassRelocator
+import com.anatawa12.relocator.relocation.RelocateResult
 import com.anatawa12.relocator.relocation.RelocationMapping
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -18,6 +19,7 @@ import org.objectweb.asm.Opcodes.ACC_NATIVE
 import org.objectweb.asm.Opcodes.ACC_VARARGS
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
 import com.anatawa12.relocator.relocation.AnnotationLocation as AnnLoc
 import com.anatawa12.relocator.relocation.TypeAnnotationLocation as TAnnLoc
 
@@ -30,8 +32,11 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
     private val collectors = listOf<ReferenceCollector>(
         DefaultCollector,
     )
-    lateinit var classes: List<ClassFile>
-    val mapping: RelocationMapping = RelocationMapping()
+    lateinit var classes: MutableList<ClassFile>
+    // the queue to remove members requested by ClassRelocator
+    val removeQueue = ConcurrentLinkedQueue<() -> Unit>()
+
+    val mapping: RelocationMapping = RelocationMapping(relocator.relocateMapping)
     // TODO use ClassRelocatorProvider by Relocator
     val relocators = listOf<ClassRelocator>(
         SimpleClassRelocator(mapping),
@@ -231,6 +236,7 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
     }
 
     private fun runRemoveQueue() {
+        removeQueue.forEach(Function0<Unit>::invoke)
     }
 }
 
