@@ -1,4 +1,4 @@
-package com.anatawa12.relocator.internal
+package com.anatawa12.relocator.internal.plugins.smap
 
 import com.anatawa12.relocator.classes.*
 import com.anatawa12.relocator.plugin.ClassRelocator

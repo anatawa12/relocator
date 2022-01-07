@@ -1,0 +1,2 @@
+com.anatawa12.relocator.internal.plugins.kotlin.KotlinClassRelocatorPlugin
+com.anatawa12.relocator.internal.plugins.smap.SMAPClassRelocatorPlugin

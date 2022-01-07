@@ -1,6 +1,9 @@
-package com.anatawa12.relocator.internal
+package com.anatawa12.relocator.internal.plugins.kotlin
 
 import com.anatawa12.relocator.classes.*
+import com.anatawa12.relocator.internal.component1
+import com.anatawa12.relocator.internal.component2
+import com.anatawa12.relocator.internal.mapList
 import com.anatawa12.relocator.reference.ClassReference
 import com.anatawa12.relocator.plugin.AnnotationLocation
 import com.anatawa12.relocator.plugin.ClassRelocator
@@ -11,39 +14,34 @@ import kotlinx.metadata.jvm.*
 import org.objectweb.asm.Type
 
 class KotlinSupportRelocator(
-    val mapping: RelocationMapping,
-    val libraryUseMode: LibraryUseMode = LibraryUseMode.DoNotProvide,
-    val provideForReflection: Boolean = true,
-    val annotationSet: AnnotationSet = AnnotationSet.JetbrainsAndKotlinJvm,
+    val parameters: Parameters
 ) : ClassRelocator() {
+    val mapping: RelocationMapping get() = parameters.mapping
+
     // TODO: KProperty
-    private val mappedKotlinMetadata: ClassReference
-    private val kotlinMetadatas: Set<ClassReference>
     private val keepMapped: Boolean
     private val doMapping: Boolean
 
     init {
-        mapping.excludeMapping(kotlinMetadata)
-        val mappedKotlinMetadata = mapping.mapClassRef(kotlinMetadata)
-        this.mappedKotlinMetadata = mappedKotlinMetadata ?: kotlinMetadata
-        kotlinMetadatas = setOf(this.mappedKotlinMetadata, kotlinMetadata)
-        keepMapped = provideForReflection || mappedKotlinMetadata == null && libraryUseMode == LibraryUseMode.Metadata
-        doMapping = provideForReflection || libraryUseMode != LibraryUseMode.DoNotProvide
+        keepMapped = parameters.provideForReflection ||
+                parameters.isKotlinMetadataMapped && parameters.libraryUseMode == LibraryUseMode.Metadata
+        doMapping = parameters.provideForReflection || parameters.libraryUseMode != LibraryUseMode.DoNotProvide
     }
 
     override fun relocate(annotation: ClassAnnotation, visible: Boolean, location: AnnotationLocation): RelocateResult {
-        if (annotation.annotationClass in kotlinMetadatas)
+        if (annotation.annotationClass in parameters.kotlinMetadatas)
             return RelocateResult.Finish
         return RelocateResult.Continue
     }
 
     override fun relocate(classFile: ClassFile): RelocateResult {
-        val visibleMetadata = classFile.visibleAnnotations.firstOrNull { it.annotationClass in kotlinMetadatas }
+        val visibleMetadata = classFile.visibleAnnotations
+            .firstOrNull { it.annotationClass in parameters.kotlinMetadatas }
         if (visibleMetadata != null) {
             process(visibleMetadata, true, classFile)
         } else {
             val invisibleMetadata =
-                classFile.invisibleAnnotations.firstOrNull { it.annotationClass in kotlinMetadatas }
+                classFile.invisibleAnnotations.firstOrNull { it.annotationClass in parameters.kotlinMetadatas }
             if (invisibleMetadata != null) {
                 process(invisibleMetadata, false, classFile)
             }
@@ -89,14 +87,17 @@ class KotlinSupportRelocator(
             null -> error("un-parsable metadata version: ${header.metadataVersion.contentToString()}")
         }
         val values = makeAnnotationValues(mappedMetadata.header)
-        if (provideForReflection) {
+        if (parameters.provideForReflection) {
             annotation.values.clear()
             annotation.values.addAll(values)
+            annotation.annotationClass = parameters.mappedKotlinMetadata
+            parameters.excludeAnnotations.add(annotation)
         }
-        when (libraryUseMode) {
+        when (parameters.libraryUseMode) {
             LibraryUseMode.DoNotProvide -> {}
             LibraryUseMode.Metadata -> {
-                classFile.invisibleAnnotations.add(ClassAnnotation(kotlinMetadata, values))
+                classFile.invisibleAnnotations.add(ClassAnnotation(Parameters.kotlinMetadata, values)
+                    .apply(parameters.excludeAnnotations::add))
             }
         }
     }
@@ -540,7 +541,6 @@ class KotlinSupportRelocator(
     companion object {
         private val rsKotlin = StringBuilder()
             .append('k').append('o').append('t').append('l').append('i').append('n').toString()
-        private val kotlinMetadata = ClassReference("$rsKotlin/Metadata")
         private val kotlinPrimitive: Set<ClassName> = buildSet {
             // primitives
             for (primitive in listOf("Byte", "Short", "Int", "Long", "Float", "Double", "Char", "Boolean")) {
@@ -598,17 +598,6 @@ class KotlinSupportRelocator(
             header.packageName.takeUnless(String::isEmpty)?.let(::AnnotationString)?.let { add(KeyValuePair("pn", it)) }
             add(KeyValuePair("xi", AnnotationInt(header.extraInt)))
         }
-    }
-
-    enum class LibraryUseMode {
-        DoNotProvide,
-        Metadata,
-        //TypeAnnotations,
-    }
-
-    enum class AnnotationSet {
-        // use jetbrains nullability and kotlin-jvm mutability
-        JetbrainsAndKotlinJvm,
     }
 }
 

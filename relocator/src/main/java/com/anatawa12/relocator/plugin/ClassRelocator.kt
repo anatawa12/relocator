@@ -23,12 +23,14 @@ abstract class ClassRelocator {
     }
 }
 
-fun interface ClassRelocatorProvider {
-    fun provide(mapping: RelocationMapping): ClassRelocator
-}
-
 enum class RelocateResult {
     Continue,
     Finish,
     Remove
+}
+
+enum class ClassRelocatorStep {
+    PreFiltering,
+    LanguageProcessing,
+    Finalizing,
 }

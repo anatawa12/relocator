@@ -8,11 +8,10 @@ import com.anatawa12.relocator.diagnostic.*
 import com.anatawa12.relocator.internal.BasicDiagnostics.UNRESOLVABLE_CLASS
 import com.anatawa12.relocator.internal.BasicDiagnostics.UNRESOLVABLE_FIELD
 import com.anatawa12.relocator.internal.BasicDiagnostics.UNRESOLVABLE_METHOD
+import com.anatawa12.relocator.plugin.*
 import com.anatawa12.relocator.reference.*
 import com.anatawa12.relocator.reference.withLocation
-import com.anatawa12.relocator.plugin.ClassRelocator
-import com.anatawa12.relocator.plugin.RelocateResult
-import com.anatawa12.relocator.plugin.RelocationMapping
+import com.anatawa12.relocator.reflect.ReflectionMappingContainer
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import org.objectweb.asm.Opcodes.ACC_NATIVE
@@ -28,7 +27,7 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
     lateinit var embeds: EmbeddableClassPath
     lateinit var roots: EmbeddableClassPath
     lateinit var classpath: CombinedClassPath
-    val diagnosticHandler = InternalDiagnosticHandlerWrapper(relocator.diagnosticHandler, relocator.suppressions)
+    val diagnosticHandler = InternalDiagnosticHandlerWrapper(relocator.diagnosticHandler, relocator.suppression)
     private val collectors = listOf<ReferenceCollector>(
         DefaultCollector,
     )
@@ -37,24 +36,26 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
     val removeQueue = ConcurrentLinkedQueue<() -> Unit>()
 
     val mapping: RelocationMapping = RelocationMapping(relocator.relocateMapping)
-    // TODO use ClassRelocatorProvider by Relocator
-    val relocators = listOf<ClassRelocator>(
-        SimpleClassRelocator(mapping),
-        KotlinSupportRelocator(mapping, 
-            libraryUseMode = KotlinSupportRelocator.LibraryUseMode.Metadata,
-            provideForReflection = false
-        ),
-        StringClassRelocator(mapping),
-        SMAPRelocator(mapping),
-    )
+     lateinit var relocators: List<ClassRelocator>
 
     suspend fun run(): Unit = coroutineScope {
         val timer = Timer(relocator.debugMode)
+
+        val preContext = PreClassRelocatorPluginContextImpl()
+        for (plugin in relocator.plugins) plugin.preApply(preContext)
+        val pluginContext = ClassRelocatorPluginContextImpl()
+        for (plugin in relocator.plugins) plugin.apply(pluginContext)
+
+        relocators = pluginContext.buildClassRelocators()
+
+        timer.end("loadPlugins")
+
         refers = ReferencesClassPath(relocator.referPath, relocator.debugMode) {
             computeReferencesForLibrary()
         }
         embeds = EmbeddableClassPath(relocator.embedPath, relocator.debugMode)
         roots = EmbeddableClassPath(relocator.rootPath, relocator.debugMode)
+
         timer.end("construct")
         listOf(
             launch { refers.init() },
@@ -237,6 +238,35 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
 
     private fun runRemoveQueue() {
         removeQueue.forEach(Function0<Unit>::invoke)
+    }
+
+    private inner class PreClassRelocatorPluginContextImpl : PreClassRelocatorPluginContext {
+        override val reflectionMap: ReflectionMappingContainer get() = relocator.reflectionMap
+        override val suppression: SuppressionContainer get() = relocator.suppression
+    }
+
+    private inner class ClassRelocatorPluginContextImpl : ClassRelocatorPluginContext {
+        private val preFiltering = mutableListOf<ClassRelocator>(
+        )
+        private val languageProcessing = mutableListOf<ClassRelocator>(
+            SimpleClassRelocator(mapping)
+        )
+        private val finalizing = mutableListOf<ClassRelocator>(
+            StringClassRelocator(mapping)
+        )
+
+        override val relocationMapping: RelocationMapping get() = mapping
+        override val diagnosticHandler: DiagnosticHandler get() = this@RelocatingEnvironment.diagnosticHandler
+
+        override fun addClassRelocator(step: ClassRelocatorStep, relocator: ClassRelocator) {
+            when (step) {
+                ClassRelocatorStep.PreFiltering -> preFiltering.add(relocator)
+                ClassRelocatorStep.LanguageProcessing -> languageProcessing.add(relocator)
+                ClassRelocatorStep.Finalizing -> finalizing.add(relocator)
+            }
+        }
+
+        fun buildClassRelocators(): List<ClassRelocator> = preFiltering + languageProcessing + finalizing
     }
 }
 

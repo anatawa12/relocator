@@ -1,4 +1,4 @@
-package com.anatawa12.relocator.internal
+package com.anatawa12.relocator.internal.plugins.smap
 
 import io.kotest.core.spec.style.DescribeSpec
 import io.kotest.matchers.shouldBe

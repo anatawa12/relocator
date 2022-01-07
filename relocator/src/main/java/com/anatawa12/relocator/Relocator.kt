@@ -5,12 +5,14 @@ import com.anatawa12.relocator.diagnostic.DiagnosticHandler
 import com.anatawa12.relocator.diagnostic.SuppressionContainer
 import com.anatawa12.relocator.internal.RelocatingEnvironment
 import com.anatawa12.relocator.internal.ThrowingDiagnosticHandler
+import com.anatawa12.relocator.plugin.ClassRelocatorPlugin
 import com.anatawa12.relocator.reflect.ReflectionMappingContainer
 import kotlinx.coroutines.Dispatchers
 import java.io.File
 import java.nio.channels.CompletionHandler
 import java.util.*
 import java.util.function.Function
+import kotlin.collections.ArrayDeque
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.startCoroutine
@@ -66,10 +68,56 @@ class Relocator {
         _rootPath.add(rootPath)
     }
 
+    private val _plugins: MutableList<ClassRelocatorPlugin> = ArrayList()
+
+    /**
+     * The list of [ClassRelocatorPlugin].
+     */
+    val plugins: List<ClassRelocatorPlugin> = Collections.unmodifiableList(_plugins)
+
+    /**
+     * Install a [ClassRelocatorPlugin].
+     * @param plugin The [ClassRelocatorPlugin] to be installed
+     */
+    fun addPlugin(plugin: ClassRelocatorPlugin) {
+        _plugins.add(plugin)
+    }
+
+    private val serviceLoader by lazy {
+        ServiceLoader.load(ClassRelocatorPlugin::class.java, classLoader)
+    }
+
+    /**
+     * Install a [ClassRelocatorPlugin] via service loader with name.
+     * This will also install dependency plugins.
+     * This can be used to install 
+     * @param name The name of [ClassRelocatorPlugin] to be installed.
+     */
+    fun addPlugin(name: String) {
+        val requests = ArrayDeque<Pair<String?, String>>()
+        val plugins = mutableListOf<ClassRelocatorPlugin>()
+        requests.addLast(null to name)
+        while (requests.isNotEmpty()) {
+            val (source, finding) = requests.removeFirst()
+            val found = serviceLoader.firstOrNull { it.getName() == finding }
+                ?: if (source != null) error("ClassRelocatorPlugin named '$name' not found; requested by '$source'")
+                else error("ClassRelocatorPlugin named '$name' not found")
+            plugins.add(found)
+        }
+
+        _plugins.addAll(plugins)
+    }
+
+    /**
+     * The [ClassLoader] for service loader.
+     * It's required to set this ClassLoader before you call apis uses [ServiceLoader].
+     * Defaults the [ClassLoader] of [Relocator].
+     */
+    var classLoader: ClassLoader = Relocator::class.java.classLoader
+
     val reflectionMap = ReflectionMappingContainer()
 
-    @Suppress("SpellCheckingInspection")
-    val suppressions = SuppressionContainer()
+    val suppression = SuppressionContainer()
 
     /**
      * @implSpec the map is ordered by length of package

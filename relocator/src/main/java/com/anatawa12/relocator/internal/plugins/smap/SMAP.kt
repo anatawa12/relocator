@@ -1,4 +1,4 @@
-package com.anatawa12.relocator.internal
+package com.anatawa12.relocator.internal.plugins.smap
 
 internal class SMAPParser(private val string: String) {
     private var index: Int = 0
