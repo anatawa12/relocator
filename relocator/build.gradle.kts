@@ -25,6 +25,7 @@ dependencies {
     implementation("com.google.guava:guava:31.0.1-jre")
     implementation("org.jetbrains:annotations:23.0.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-metadata-jvm:0.4.1")
 
     testImplementation(kotlin("reflect"))
     testImplementation("org.ow2.asm:asm-tree:9.2")

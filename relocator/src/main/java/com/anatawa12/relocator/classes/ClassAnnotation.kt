@@ -57,7 +57,7 @@ class AnnotationClass(var descriptor: TypeDescriptor) : AnnotationValue() {
     constructor(descriptor: String) : this(TypeDescriptor(descriptor))
     override fun toString(): String = "class $descriptor"
 }
- class AnnotationArray private constructor(val values: List<AnnotationValue>, marker: Int) :
+ class AnnotationArray private constructor(val values: List<AnnotationValue>, @Suppress("UNUSED_PARAMETER") dummy: Int) :
     AnnotationValue(), List<AnnotationValue> by values {
     constructor(values: List<AnnotationValue>): this(values.toMutableList(), 0)
     constructor(vararg values: AnnotationValue): this(values.asList())
@@ -69,6 +69,7 @@ class AnnotationClass(var descriptor: TypeDescriptor) : AnnotationValue() {
     constructor(values: LongArray): this(values.map(::AnnotationLong))
     constructor(values: FloatArray): this(values.map(::AnnotationFloat))
     constructor(values: DoubleArray): this(values.map(::AnnotationDouble))
+    constructor(values: Array<String>): this(values.map(::AnnotationString))
 
     override fun toString(): String = values.joinToString()
     override fun equals(other: Any?): Boolean = values == other

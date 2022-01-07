@@ -35,7 +35,10 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
     // TODO use ClassRelocatorProvider by Relocator
     val relocators = listOf<ClassRelocator>(
         SimpleClassRelocator(mapping),
-        KotlinMetadataRemovingRelocator(mapping),
+        KotlinSupportRelocator(mapping, 
+            libraryUseMode = KotlinSupportRelocator.LibraryUseMode.Metadata,
+            provideForReflection = false
+        ),
         StringClassRelocator(mapping),
         SMAPRelocator(mapping),
     )
