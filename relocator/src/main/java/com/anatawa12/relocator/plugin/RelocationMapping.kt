@@ -19,7 +19,7 @@ class RelocationMapping(private val relocationMap: Map<String, String?>) {
     fun mapFilePath(name: String): String? {
         for ((from, mapTo) in relocationMap) {
             if (name == from) return mapTo
-            if (name.startsWith(from) && from.getOrElse(from.length) { '\u0000' } == '/')
+            if (name.startsWith(from) && name.getOrElse(from.length) { '\u0000' } == '/')
                 return mapTo + name.substring(from.length)
         }
         return null
