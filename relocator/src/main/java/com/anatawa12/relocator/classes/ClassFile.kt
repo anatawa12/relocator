@@ -13,8 +13,6 @@ import com.anatawa12.relocator.internal.computeReferencesOfRecordField
 import com.anatawa12.relocator.internal.computeReferencesOfMethod
 import com.anatawa12.relocator.reference.*
 import kotlinx.atomicfu.atomic
-import org.objectweb.asm.ClassReader
-import java.lang.Exception
 
 // TODO: module support
 
@@ -140,19 +138,6 @@ class ClassFile private constructor(
             methods,
             fields,
             recordFields)
-    }
-
-    companion object Reader {
-        fun read(bytes: ByteArray, @Suppress("UNUSED_PARAMETER") loader: ClassPath, noCode: Boolean = false): ClassFile {
-            val reader = ClassReader(bytes)
-            val builder = Builders.ClassBuilder()
-            try {
-                reader.accept(builder, if (noCode) ClassReader.SKIP_CODE else 0)
-            } catch (e: Exception) {
-                throw IllegalArgumentException("reading ${reader.className}", e)
-            }
-            return builder.classFile!!
-        }
     }
 }
 

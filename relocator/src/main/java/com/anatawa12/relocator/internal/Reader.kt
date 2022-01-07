@@ -9,7 +9,26 @@ import com.anatawa12.relocator.reference.withLocation
 import org.objectweb.asm.*
 import org.objectweb.asm.TypePath as ASMTypePath
 
-internal object Builders {
+internal object Reader {
+    fun read(
+        bytes: ByteArray,
+        @Suppress("UNUSED_PARAMETER") loader: ClassPath,
+        debug: Boolean,
+        noCode: Boolean = false,
+    ): ClassFile {
+        val reader = ClassReader(bytes)
+        val builder = ClassBuilder()
+        try {
+            if (debug)
+                reader.accept(CheckClassAdapter(builder), if (noCode) ClassReader.SKIP_CODE else 0)
+            else
+                reader.accept(builder, if (noCode) ClassReader.SKIP_CODE else 0)
+        } catch (e: Exception) {
+            throw IllegalArgumentException("reading ${reader.className}", e)
+        }
+        return builder.classFile!!
+    }
+
     class ClassBuilder : ClassVisitor(Opcodes.ASM9) {
         var classFile: ClassFile? = null
         // TODO: module support

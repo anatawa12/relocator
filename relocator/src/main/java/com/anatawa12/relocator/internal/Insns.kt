@@ -492,7 +492,7 @@ internal object Insns {
         ): AnnotationVisitor {
             val insn = insnList.last()
             val list = if (visible) insn.visibleAnnotations else insn.invisibleAnnotations
-            return Builders.AnnotationBuilder.ofTypeAnnotation(descriptor, typeRef, typePath, location, list)
+            return Reader.AnnotationBuilder.ofTypeAnnotation(descriptor, typeRef, typePath, location, list)
         }
 
         override fun visitTryCatchBlock(start: Label, end: Label, handler: Label, type: String?) {
@@ -512,7 +512,7 @@ internal object Insns {
         ): AnnotationVisitor {
             val insn = tryCatches.last()
             val list = if (visible) insn.visibleAnnotations else insn.invisibleAnnotations
-            return Builders.AnnotationBuilder.ofTypeAnnotation(descriptor, typeRef, typePath, location, list)
+            return Reader.AnnotationBuilder.ofTypeAnnotation(descriptor, typeRef, typePath, location, list)
         }
 
         override fun visitLocalVariable(
@@ -541,7 +541,7 @@ internal object Insns {
             visible: Boolean
         ): AnnotationVisitor {
             val list = if (visible) localVarVisibleAnnotations else localVarInvisibleAnnotations
-            return Builders.AnnotationBuilder.ofAnnotation(descriptor, location) { annotation ->
+            return Reader.AnnotationBuilder.ofAnnotation(descriptor, location) { annotation ->
                 list += ClassLocalVariableAnnotation(
                     TypeReference(typeRef),
                     typePath?.let(::newTypePath),

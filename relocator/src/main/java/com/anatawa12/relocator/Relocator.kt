@@ -96,6 +96,13 @@ class Relocator {
      */
     var diagnosticHandler: DiagnosticHandler = ThrowingDiagnosticHandler
 
+    /**
+     * If true, the features for debugging Relocator and plugin will be enabled.
+     * Currently. this will print some features to STDOUT.
+     */
+    // TODO: add parameter to configure debug output
+    var debugMode: Boolean = false
+
     fun <A> run(attachment: A, callback: CompletionHandler<Void?, A>) {
         class ContinuationImpl : Continuation<Unit> {
             override val context: CoroutineContext

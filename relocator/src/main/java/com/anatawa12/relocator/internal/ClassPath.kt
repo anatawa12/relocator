@@ -62,7 +62,10 @@ internal abstract class ClassContainer(val file: File) {
     }
 }
 
-internal class EmbeddableClassPath(files: List<File>): ClassPath(files) {
+internal class EmbeddableClassPath(
+    files: List<File>,
+    val debug: Boolean,
+): ClassPath(files) {
     override suspend fun init() {
         coroutineScope {
             files.asSequence()
@@ -71,7 +74,7 @@ internal class EmbeddableClassPath(files: List<File>): ClassPath(files) {
                     launch {
                         val name = path.replace('/', '.').removeSuffix(".class")
                         if (name.endsWith("module-info")) return@launch // TODO: temporal until module support
-                        classTree[name] = ClassFile.read(loadFile(path)!!, this@EmbeddableClassPath)
+                        classTree[name] = Reader.read(loadFile(path)!!, this@EmbeddableClassPath, debug)
                     }
                 }
                 .toList()
@@ -84,10 +87,11 @@ internal class EmbeddableClassPath(files: List<File>): ClassPath(files) {
 
 internal class ReferencesClassPath(
     files: List<File>,
+    val debug: Boolean,
     val initializer: ClassFile.() -> Unit,
 ): ClassPath(files) {
     override suspend fun loadClass(name: String): ClassFile? {
         val path = name.replace('.', '/')
-        return loadFile("$path.class")?.let { ClassFile.read(it, this, true) }?.apply(initializer)
+        return loadFile("$path.class")?.let { Reader.read(it, this, debug, true) }?.apply(initializer)
     }
 }

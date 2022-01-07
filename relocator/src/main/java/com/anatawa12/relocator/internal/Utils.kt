@@ -11,6 +11,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
+import kotlin.time.Duration.Companion.milliseconds
 
 internal fun Int.hasFlag(flag: Int): Boolean = (this and flag) == flag
 internal operator fun DiagnosticHandler.invoke(diagnostic: Diagnostic) = handle(diagnostic)
@@ -87,4 +88,14 @@ fun <S: Any> mapList(types: List<S>, map: (S) -> S?): List<S>? {
         return Collections.unmodifiableList(list)
     }
     return null
+}
+
+class Timer(val enabled: Boolean) {
+    @JvmField var start = System.currentTimeMillis()
+    fun end(name: String) {
+        if (!enabled) return
+        val now = System.currentTimeMillis()
+        println("$name: ${(now-start).milliseconds}")
+        start = now
+    }
 }

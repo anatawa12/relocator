@@ -41,11 +41,13 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
     )
 
     suspend fun run(): Unit = coroutineScope {
-        refers = ReferencesClassPath(relocator.referPath) {
+        val timer = Timer(relocator.debugMode)
+        refers = ReferencesClassPath(relocator.referPath, relocator.debugMode) {
             computeReferencesForLibrary()
         }
-        embeds = EmbeddableClassPath(relocator.embedPath)
-        roots = EmbeddableClassPath(relocator.rootPath)
+        embeds = EmbeddableClassPath(relocator.embedPath, relocator.debugMode)
+        roots = EmbeddableClassPath(relocator.rootPath, relocator.debugMode)
+        timer.end("construct")
         listOf(
             launch { refers.init() },
             launch { embeds.init() },
@@ -53,6 +55,7 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
         ).forEach { it.join() }
 
         checkNoErrors()
+        timer.end("init")
 
         classpath = CombinedClassPath(listOf(roots, embeds, refers))
         val computeReferenceEnv = ComputeReferenceEnvironment(
@@ -68,18 +71,23 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
         }.forEach { it.join() }
 
         checkNoErrors()
+        timer.end("computeReferences")
 
         // second step: collect references
         // collect all references for methods/classes.
         collectReferences()
+        timer.end("collectReferences")
 
         checkNoErrors()
 
         // third step: relocation
 
         listUpClasses()
+        timer.end("listUpClasses")
 
         relocateClasses()
+        runRemoveQueue()
+        timer.end("relocateClasses")
 
         // forth step: make a jar.
         // make a jar with relocation
