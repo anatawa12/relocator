@@ -21,7 +21,7 @@ import static java.util.Collections.singletonList;
 @SuppressWarnings("StaticInitializerReferencesSubClass")
 public abstract class TypeSignature implements RelocationMappingPrimitiveMarker {
     @NotNull
-    abstract String getSignature();
+    public abstract String getSignature();
 
     private final int dimensions;
 
@@ -226,7 +226,7 @@ public abstract class TypeSignature implements RelocationMappingPrimitiveMarker 
         }
 
         @Override
-        @NotNull String getSignature() {
+        public @NotNull String getSignature() {
             return signature;
         }
 
@@ -260,7 +260,7 @@ public abstract class TypeSignature implements RelocationMappingPrimitiveMarker 
         }
 
         @Override
-        @NotNull String getSignature() {
+        public @NotNull String getSignature() {
             return signature;
         }
 
@@ -324,7 +324,7 @@ public abstract class TypeSignature implements RelocationMappingPrimitiveMarker 
         private @Nullable String signature;
 
         @Override
-        @NotNull String getSignature() {
+        public @NotNull String getSignature() {
             if (signature != null) return signature;
             StringBuilder builder = new StringBuilder();
 

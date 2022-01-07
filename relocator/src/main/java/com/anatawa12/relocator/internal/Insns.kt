@@ -102,6 +102,45 @@ internal object Insns {
         VMType.Short to (SALOAD - IALOAD),
     )
 
+    val typedOperatorInsnMapping = mapOf(
+        Pair(TypedInsnType.ADD, VMType.Int) to IADD,
+        Pair(TypedInsnType.ADD, VMType.Long) to LADD,
+        Pair(TypedInsnType.ADD, VMType.Float) to FADD,
+        Pair(TypedInsnType.ADD, VMType.Double) to DADD,
+        Pair(TypedInsnType.SUB, VMType.Int) to ISUB,
+        Pair(TypedInsnType.SUB, VMType.Long) to LSUB,
+        Pair(TypedInsnType.SUB, VMType.Float) to FSUB,
+        Pair(TypedInsnType.SUB, VMType.Double) to DSUB,
+        Pair(TypedInsnType.MUL, VMType.Int) to IMUL,
+        Pair(TypedInsnType.MUL, VMType.Long) to LMUL,
+        Pair(TypedInsnType.MUL, VMType.Float) to FMUL,
+        Pair(TypedInsnType.MUL, VMType.Double) to DMUL,
+        Pair(TypedInsnType.DIV, VMType.Int) to IDIV,
+        Pair(TypedInsnType.DIV, VMType.Long) to LDIV,
+        Pair(TypedInsnType.DIV, VMType.Float) to FDIV,
+        Pair(TypedInsnType.DIV, VMType.Double) to DDIV,
+        Pair(TypedInsnType.REM, VMType.Int) to IREM,
+        Pair(TypedInsnType.REM, VMType.Long) to LREM,
+        Pair(TypedInsnType.REM, VMType.Float) to FREM,
+        Pair(TypedInsnType.REM, VMType.Double) to DREM,
+        Pair(TypedInsnType.NEG, VMType.Int) to INEG,
+        Pair(TypedInsnType.NEG, VMType.Long) to LNEG,
+        Pair(TypedInsnType.NEG, VMType.Float) to FNEG,
+        Pair(TypedInsnType.NEG, VMType.Double) to DNEG,
+        Pair(TypedInsnType.SHL, VMType.Int) to ISHL,
+        Pair(TypedInsnType.SHL, VMType.Long) to LSHL,
+        Pair(TypedInsnType.SHR, VMType.Int) to ISHR,
+        Pair(TypedInsnType.SHR, VMType.Long) to LSHR,
+        Pair(TypedInsnType.USHR, VMType.Int) to IUSHR,
+        Pair(TypedInsnType.USHR, VMType.Long) to LUSHR,
+        Pair(TypedInsnType.AND, VMType.Int) to IAND,
+        Pair(TypedInsnType.AND, VMType.Long) to LAND,
+        Pair(TypedInsnType.OR, VMType.Int) to IOR,
+        Pair(TypedInsnType.OR, VMType.Long) to LOR,
+        Pair(TypedInsnType.XOR, VMType.Int) to IXOR,
+        Pair(TypedInsnType.XOR, VMType.Long) to LXOR,
+    )
+
     val typedVarInsnDiffs = arrayOf(VMType.Int, VMType.Long, VMType.Float, VMType.Double, VMType.Reference)
 
     val typedInsnMapping = mapOf(
@@ -164,7 +203,7 @@ internal object Insns {
         ARETURN to Pair(TypedInsnType.RETURN, VMType.Reference),
     )
 
-    val newArrayTypeMapping = mapOf(
+    val newArrayTypeMapping = biMapOf(
         T_BOOLEAN to VMType.Boolean, 
         T_CHAR to VMType.Char, 
         T_FLOAT to VMType.Float, 

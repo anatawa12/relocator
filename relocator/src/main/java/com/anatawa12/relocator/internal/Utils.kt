@@ -17,6 +17,8 @@ internal operator fun DiagnosticHandler.invoke(diagnostic: Diagnostic) = handle(
 internal inline fun <reified R, T : R> Array<T>.copy(): Array<R> = Array(size) { this[it] }
 
 internal inline fun <reified R, T> Array<T>.mapToArray(map: (T) -> R): Array<R> = Array(size) { map(this[it]) }
+internal inline fun <reified R, T> List<T>.mapToArray(map: (T) -> R): Array<R> = Array(size) { map(this[it]) }
+internal inline fun <T> List<T>.mapToIntArray(map: (T) -> Int): IntArray = IntArray(size) { map(this[it]) }
 
 class TaskQueue(
     val scope: CoroutineScope,
