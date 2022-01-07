@@ -1,10 +1,10 @@
 package com.anatawa12.relocator.internal
 
 import com.anatawa12.relocator.classes.*
-import com.anatawa12.relocator.relocation.AnnotationLocation
-import com.anatawa12.relocator.relocation.ClassRelocator
-import com.anatawa12.relocator.relocation.RelocateResult
-import com.anatawa12.relocator.relocation.RelocationMapping
+import com.anatawa12.relocator.plugin.AnnotationLocation
+import com.anatawa12.relocator.plugin.ClassRelocator
+import com.anatawa12.relocator.plugin.RelocateResult
+import com.anatawa12.relocator.plugin.RelocationMapping
 
 class SimpleClassRelocator(
     val mapping: RelocationMapping

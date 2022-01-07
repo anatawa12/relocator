@@ -1,7 +1,7 @@
-package com.anatawa12.relocator.relocation
+package com.anatawa12.relocator.plugin
 
 import com.anatawa12.relocator.classes.*
-import com.anatawa12.relocator.relocation.RelocateResult.*
+import com.anatawa12.relocator.plugin.RelocateResult.*
 
 abstract class ClassRelocator {
     open fun relocate(classFile: ClassFile) = Continue

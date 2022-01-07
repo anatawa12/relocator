@@ -1,7 +1,7 @@
 package com.anatawa12.relocator.internal
 
 import com.anatawa12.relocator.classes.*
-import com.anatawa12.relocator.relocation.*
+import com.anatawa12.relocator.plugin.*
 
 class StringClassRelocator(
     val mapping: RelocationMapping

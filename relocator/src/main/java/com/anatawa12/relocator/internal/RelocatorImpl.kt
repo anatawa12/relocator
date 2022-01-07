@@ -10,9 +10,9 @@ import com.anatawa12.relocator.internal.BasicDiagnostics.UNRESOLVABLE_FIELD
 import com.anatawa12.relocator.internal.BasicDiagnostics.UNRESOLVABLE_METHOD
 import com.anatawa12.relocator.reference.*
 import com.anatawa12.relocator.reference.withLocation
-import com.anatawa12.relocator.relocation.ClassRelocator
-import com.anatawa12.relocator.relocation.RelocateResult
-import com.anatawa12.relocator.relocation.RelocationMapping
+import com.anatawa12.relocator.plugin.ClassRelocator
+import com.anatawa12.relocator.plugin.RelocateResult
+import com.anatawa12.relocator.plugin.RelocationMapping
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import org.objectweb.asm.Opcodes.ACC_NATIVE
@@ -20,8 +20,8 @@ import org.objectweb.asm.Opcodes.ACC_VARARGS
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
-import com.anatawa12.relocator.relocation.AnnotationLocation as AnnLoc
-import com.anatawa12.relocator.relocation.TypeAnnotationLocation as TAnnLoc
+import com.anatawa12.relocator.plugin.AnnotationLocation as AnnLoc
+import com.anatawa12.relocator.plugin.TypeAnnotationLocation as TAnnLoc
 
 internal class RelocatingEnvironment(val relocator: Relocator) {
     lateinit var refers: ReferencesClassPath
