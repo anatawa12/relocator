@@ -10,6 +10,10 @@ class AllAPIDoesNotUseExternalClass : PublicABITest(true) {
         @Suppress("NAME_SHADOWING") var clazz = clazz
         while (clazz.isArray) clazz = clazz.componentType
 
+        // exclude RelocationMappingPrimitiveMarker
+        if (clazz.name.startsWith("com.anatawa12.relocator.internal.RelocationMappingPrimitiveMarker"))
+            return
+
         if (clazz.name.startsWith("com.anatawa12.relocator.internal."))
             fail("uses internal at $location")
 
