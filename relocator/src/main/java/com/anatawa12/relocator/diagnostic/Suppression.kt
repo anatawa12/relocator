@@ -98,7 +98,7 @@ sealed class SuppressingValue<in T>() {
     object Any : SuppressingValue<Any>()
     class IntRange private constructor(val min: Int, val max: Int) : SuppressingValue<Int>()
     class StringPattern(val pattern: Pattern) : SuppressingValue<Int>() {
-        constructor(@Language("regex") pattern: String) : this(Pattern.compile(pattern))
+        constructor(@Language("RegExp") pattern: String) : this(Pattern.compile(pattern))
     }
     class IntValue(val value: Int) : SuppressingValue<Int>()
     class StringValue(val value: String) : SuppressingValue<Int>()
