@@ -10,7 +10,7 @@ class SimpleClassRelocator(
     val mapping: RelocationMapping
 ) : ClassRelocator() {
     override fun relocate(classFile: ClassFile): RelocateResult {
-        classFile.name.let(mapping::mapClass)?.let { classFile.name = it }
+        classFile.name.let(mapping::mapSlashedClass)?.let { classFile.name = it }
         classFile.signature?.let(mapping::mapClassSignature)?.let { classFile.signature = it }
         classFile.superName?.let(mapping::mapClassRef)?.let { classFile.superName = it }
         classFile.interfaces.replaceAll { mapping.mapClassRef(it) ?: it }

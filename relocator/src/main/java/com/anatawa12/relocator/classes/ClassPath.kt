@@ -19,6 +19,9 @@ abstract class ClassPath internal constructor(files: List<File>) {
     suspend fun loadFile(path: String): ByteArray? =
         containers.firstNotNullOfOrNull { it.loadFile(path) }
 
+    suspend fun loadFiles(path: String): List<ByteArray> =
+        containers.mapNotNull { it.loadFile(path) }
+
     suspend fun findClass(name: String): ClassFile? {
         val dottedName = name.replace('/', '.')
         return classTree[dottedName]

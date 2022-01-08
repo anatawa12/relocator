@@ -29,8 +29,8 @@ class StringClassRelocator(
         val (pre, name, end) = tryAsDescriptor(string)
         val mapped = when (checkNameKind(name)) {
             NameKind.NonClass -> null
-            NameKind.Slashed -> mapping.mapClass(name)
-            NameKind.Dotted -> mapping.mapClass(name.replace('.', '/'))?.replace('/', '.')
+            NameKind.Slashed -> mapping.mapSlashedClass(name)
+            NameKind.Dotted -> mapping.mapDottedClass(name)
         } ?: return null
         return "$pre$mapped$end"
     }

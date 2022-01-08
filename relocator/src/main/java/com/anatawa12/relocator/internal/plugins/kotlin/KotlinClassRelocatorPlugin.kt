@@ -90,13 +90,15 @@ class KotlinClassRelocatorPlugin : ClassRelocatorPlugin {
 
     override fun apply(context: ClassRelocatorPluginContext) {
         // TODO: parameters from external
-        val parameters = Parameters(context.relocationMapping, context.getPlugin("exclude") as ExcludePlugin)
+        val visitors = RelocatorVisitors(context.relocationMapping)
+        val parameters = Parameters(visitors, context.getPlugin("exclude") as ExcludePlugin)
         context.addClassRelocator(ClassRelocatorStep.LanguageProcessing, KotlinSupportRelocator(parameters))
+        context.addFileRelocator(KotlinFileRelocator(parameters))
     }
 }
 
 class Parameters(
-    val mapping: RelocationMapping,
+    val visitors: RelocatorVisitors,
     val excludePlugin: ExcludePlugin,
     val libraryUseMode: LibraryUseMode = LibraryUseMode.DoNotProvide,
     val provideForReflection: Boolean = true,
@@ -107,12 +109,12 @@ class Parameters(
     val kotlinMetadatas: Set<ClassReference>
 
     init {
-        val mappedKotlinMetadata = mapping.mapClassRef(kotlinMetadata)
+        val mappedKotlinMetadata = visitors.mapping.mapClassRef(kotlinMetadata)
         isKotlinMetadataMapped = mappedKotlinMetadata != null
         this.mappedKotlinMetadata = mappedKotlinMetadata ?: kotlinMetadata
         kotlinMetadatas = setOf(this.mappedKotlinMetadata, kotlinMetadata)
-        mapping.excludeMapping(kotlinMetadata)
-        mapping.excludeMapping(this.mappedKotlinMetadata)
+        visitors.mapping.excludeMapping(kotlinMetadata)
+        visitors.mapping.excludeMapping(this.mappedKotlinMetadata)
     }
 
     companion object {

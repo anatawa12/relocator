@@ -12,7 +12,11 @@ import com.anatawa12.relocator.reference.MethodReference
 import java.util.*
 
 class RelocationMapping(private val relocationMap: Map<String, String?>) {
-    fun mapClass(name: String): String? {
+    fun mapDottedClass(name: String): String? {
+        return mapFilePath(name.replace('.', '/'))?.replace('/', '.')
+    }
+
+    fun mapSlashedClass(name: String): String? {
         return mapFilePath(name)
     }
 
@@ -57,7 +61,7 @@ class RelocationMapping(private val relocationMap: Map<String, String?>) {
         if (reference.isArray()) {
             return mapTypeDescriptor(reference.arrayComponentType)?.array(reference.arrayDimensions)?.tryAsClassReference()
         } else {
-            mapClass(reference.name).takeIf { it != reference.name }?.let { mapped ->
+            mapSlashedClass(reference.name).takeIf { it != reference.name }?.let { mapped ->
                 return ClassReference(mapped)
             }
         }
@@ -116,7 +120,7 @@ class RelocationMapping(private val relocationMap: Map<String, String?>) {
             TypeSignature.Kind.Primitive -> null
             TypeSignature.Kind.TypeArgument -> null
             TypeSignature.Kind.Class -> {
-                TypeSignature.ClassBuilder(mapClass(signature.rootClassName) ?: signature.rootClassName).run {
+                TypeSignature.ClassBuilder(mapSlashedClass(signature.rootClassName) ?: signature.rootClassName).run {
                     signature.getTypeArguments(0).forEach { addTypeArgument(mapTypeArgument(it) ?: it) }
                     for (i in 1..signature.innerClassCount) {
                         innerClassName(signature.getInnerClassName(i))
@@ -138,7 +142,7 @@ class RelocationMapping(private val relocationMap: Map<String, String?>) {
         return when (descriptor.kind) {
             TypeDescriptor.Kind.Array -> mapTypeDescriptor(descriptor.arrayComponent)?.array(descriptor.arrayDimensions)
             TypeDescriptor.Kind.Primitive -> null
-            TypeDescriptor.Kind.Class -> mapClass(descriptor.internalName)?.let { newTypeDescriptorInternal("L$it;") }
+            TypeDescriptor.Kind.Class -> mapSlashedClass(descriptor.internalName)?.let { newTypeDescriptorInternal("L$it;") }
         }
     }
 

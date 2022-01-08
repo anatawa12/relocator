@@ -23,6 +23,7 @@ interface ClassRelocatorPluginContext {
     val relocationMapping: RelocationMapping
     val diagnosticHandler: DiagnosticHandler
     fun addClassRelocator(step: ClassRelocatorStep, relocator: ClassRelocator)
+    fun addFileRelocator(relocator: FileRelocator)
     fun getPlugin(name: String): ClassRelocatorPlugin?
 }
 

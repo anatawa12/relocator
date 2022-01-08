@@ -5,6 +5,7 @@ import com.anatawa12.relocator.ReferencesCollectContext
 import com.anatawa12.relocator.Relocator
 import com.anatawa12.relocator.classes.*
 import com.anatawa12.relocator.diagnostic.*
+import com.anatawa12.relocator.file.FileObject
 import com.anatawa12.relocator.internal.BasicDiagnostics.UNRESOLVABLE_CLASS
 import com.anatawa12.relocator.internal.BasicDiagnostics.UNRESOLVABLE_FIELD
 import com.anatawa12.relocator.internal.BasicDiagnostics.UNRESOLVABLE_METHOD
@@ -32,11 +33,13 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
         DefaultCollector,
     )
     lateinit var classes: MutableList<ClassFile>
+    lateinit var fileObjects: MutableList<FileObject>
     // the queue to remove members requested by ClassRelocator
     val removeQueue = ConcurrentLinkedQueue<() -> Unit>()
 
     val mapping: RelocationMapping = RelocationMapping(relocator.relocateMapping)
      lateinit var relocators: List<ClassRelocator>
+    lateinit var fileRelocators: List<FileRelocator>
 
     suspend fun run(): Unit = coroutineScope {
         val timer = Timer(relocator.debugMode)
@@ -47,6 +50,7 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
         for (plugin in relocator.plugins.values) plugin.apply(pluginContext)
 
         relocators = pluginContext.buildClassRelocators()
+        fileRelocators = pluginContext.fileRelocators
 
         timer.end("loadPlugins")
 
@@ -91,12 +95,18 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
 
         // third step: relocation
 
-        listUpClasses()
-        timer.end("listUpClasses")
+        TaskQueue {
+            listUpClasses()
+            listUpFiles()
+        }
+        timer.end("listUpClasses&Files")
 
-        relocateClasses()
+        TaskQueue {
+            relocateClasses()
+            relocateFiles()
+        }
         runRemoveQueue()
-        timer.end("relocateClasses")
+        timer.end("relocateClasses&File")
 
         // forth step: make a jar.
         // make a jar with relocation
@@ -120,7 +130,7 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
         }
     }
 
-    private suspend fun listUpClasses() = TaskQueue {
+    private fun TaskQueue.listUpClasses() {
         classes = (embeds.classes + roots.classes).filter { it.included }.toMutableList()
         for (classFile in classes) {
             start {
@@ -130,7 +140,36 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
         }
     }
 
-    private suspend fun relocateClasses() = TaskQueue {
+    private fun TaskQueue.listUpFiles() = start {
+        val p = ConcurrentHashMap<String, ConcurrentLinkedQueue<ByteArray>>()
+        TaskQueue {
+            for (classPath in listOf(embeds, roots)) {
+                for (name in classPath.files.filterNot { it.endsWith(".class") }) start {
+                    p.computeIfAbsent(name) { ConcurrentLinkedQueue() }.addAll(classPath.loadFiles(name))
+                }
+            }
+        }
+        fileObjects = p.mapTo(mutableListOf()) { (k, v) -> FileObject(k, v.toMutableList()) }
+    }
+
+    private fun TaskQueue.relocateFiles() {
+        for (fileObject in fileObjects) {
+            start {
+                for (relocator in fileRelocators) {
+                    when (relocator.relocate(fileObject)) {
+                        RelocateResult.Continue -> continue
+                        RelocateResult.Finish -> return@start
+                        RelocateResult.Remove -> {
+                            removeQueue.add { fileObjects.remove(fileObject) }
+                            return@start
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun TaskQueue.relocateClasses() {
         for (classFile in classes) {
             start {
                 runRelocator(classes, classFile, ClassRelocator::relocate)
@@ -255,6 +294,9 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
         private val finalizing = mutableListOf<ClassRelocator>(
             StringClassRelocator(mapping)
         )
+        val fileRelocators = mutableListOf<FileRelocator>(
+            SimpleFileRelocator(mapping)
+        )
 
         override val relocationMapping: RelocationMapping get() = mapping
         override val diagnosticHandler: DiagnosticHandler get() = this@RelocatingEnvironment.diagnosticHandler
@@ -265,6 +307,10 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
                 ClassRelocatorStep.LanguageProcessing -> languageProcessing.add(relocator)
                 ClassRelocatorStep.Finalizing -> finalizing.add(relocator)
             }
+        }
+
+        override fun addFileRelocator(relocator: FileRelocator) {
+            fileRelocators += relocator
         }
 
         override fun getPlugin(name: String): ClassRelocatorPlugin? = relocator.plugins[name]
