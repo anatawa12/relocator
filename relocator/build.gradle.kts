@@ -16,7 +16,7 @@ repositories {
 
 dependencies {
     ksp(project(":builder-builder"))
-    compileOnly(project(":builder-builder-lib"))
+    compileOnly(project(":builder-builder:lib"))
 
     implementation(platform(kotlin("bom")))
     implementation(kotlin("stdlib"))

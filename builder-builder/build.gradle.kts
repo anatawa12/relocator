@@ -13,7 +13,7 @@ dependencies {
     implementation("com.squareup:kotlinpoet:1.10.2") {
         exclude(module = "kotlin-reflect")
     }
-    implementation(project(":builder-builder-lib"))
+    implementation(project(":builder-builder:lib"))
 
     compileOnly("com.google.auto.service:auto-service:1.0.1")
     kapt("com.google.auto.service:auto-service:1.0.1")
