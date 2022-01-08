@@ -1,5 +1,5 @@
 rootProject.name = "relocator"
 
-include("relocator")
+include("main")
 include("builder-builder")
 include("builder-builder:lib")

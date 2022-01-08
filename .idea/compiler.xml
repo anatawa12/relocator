@@ -4,6 +4,8 @@
     <bytecodeTargetLevel target="1.8">
       <module name="relocator.builder-builder-lib.main" target="8" />
       <module name="relocator.builder-builder-lib.test" target="8" />
+      <module name="relocator.relocator.main" target="8" />
+      <module name="relocator.relocator.test" target="8" />
     </bytecodeTargetLevel>
   </component>
 </project>

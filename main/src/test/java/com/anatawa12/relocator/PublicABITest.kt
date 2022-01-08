@@ -52,7 +52,7 @@ abstract class PublicABITest(
 
         for (method in classFile.declaredMethods) {
             if (!isApi(method.modifiers)) continue
-            if (checkInternalMarker && method.name.endsWith("\$relocator")) continue
+            if (checkInternalMarker && method.name.endsWith("\$main")) continue
             if (checkInternalMarker && method.name in javaKeywords) continue
 
             checkMethod(method)
