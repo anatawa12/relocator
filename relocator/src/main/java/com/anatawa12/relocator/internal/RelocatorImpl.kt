@@ -42,9 +42,9 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
         val timer = Timer(relocator.debugMode)
 
         val preContext = PreClassRelocatorPluginContextImpl()
-        for (plugin in relocator.plugins) plugin.preApply(preContext)
+        for (plugin in relocator.plugins.values) plugin.preApply(preContext)
         val pluginContext = ClassRelocatorPluginContextImpl()
-        for (plugin in relocator.plugins) plugin.apply(pluginContext)
+        for (plugin in relocator.plugins.values) plugin.apply(pluginContext)
 
         relocators = pluginContext.buildClassRelocators()
 

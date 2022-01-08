@@ -13,6 +13,7 @@ import java.nio.channels.CompletionHandler
 import java.util.*
 import java.util.function.Function
 import kotlin.collections.ArrayDeque
+import kotlin.collections.LinkedHashMap
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.startCoroutine
@@ -68,19 +69,20 @@ class Relocator {
         _rootPath.add(rootPath)
     }
 
-    private val _plugins: MutableList<ClassRelocatorPlugin> = ArrayList()
+    private val _plugins = LinkedHashMap<String, ClassRelocatorPlugin>()
 
     /**
      * The list of [ClassRelocatorPlugin].
      */
-    val plugins: List<ClassRelocatorPlugin> = Collections.unmodifiableList(_plugins)
+    val plugins: Map<String, ClassRelocatorPlugin> = Collections.unmodifiableMap(_plugins)
 
     /**
      * Install a [ClassRelocatorPlugin].
      * @param plugin The [ClassRelocatorPlugin] to be installed
      */
     fun addPlugin(plugin: ClassRelocatorPlugin) {
-        _plugins.add(plugin)
+        if (_plugins.putIfAbsent(plugin.getName(), plugin) != null)
+            error("a plugin named '${plugin.getName()}' already installed")
     }
 
     private val serviceLoader by lazy {
@@ -94,18 +96,20 @@ class Relocator {
      * @param name The name of [ClassRelocatorPlugin] to be installed.
      */
     fun addPlugin(name: String) {
+        if (name in _plugins) error("a plugin named '$name' already installed")
         val requests = ArrayDeque<Pair<String?, String>>()
         val plugins = mutableListOf<ClassRelocatorPlugin>()
         requests.addLast(null to name)
         while (requests.isNotEmpty()) {
             val (source, finding) = requests.removeFirst()
+            if (finding in _plugins) continue
             val found = serviceLoader.firstOrNull { it.getName() == finding }
                 ?: if (source != null) error("ClassRelocatorPlugin named '$name' not found; requested by '$source'")
                 else error("ClassRelocatorPlugin named '$name' not found")
             plugins.add(found)
         }
 
-        _plugins.addAll(plugins)
+        for (plugin in plugins) _plugins[plugin.getName()] = plugin
     }
 
     /**
