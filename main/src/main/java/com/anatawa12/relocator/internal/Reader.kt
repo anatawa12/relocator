@@ -4,6 +4,7 @@ import com.anatawa12.relocator.classes.*
 import com.anatawa12.relocator.classes.TypePath
 import com.anatawa12.relocator.classes.TypeReference
 import com.anatawa12.relocator.diagnostic.Location
+import com.anatawa12.relocator.file.SingleFile
 import com.anatawa12.relocator.reference.ClassReference
 import com.anatawa12.relocator.reference.withLocation
 import org.objectweb.asm.*
@@ -11,13 +12,13 @@ import org.objectweb.asm.TypePath as ASMTypePath
 
 internal object Reader {
     fun read(
-        bytes: ByteArray,
+        file: SingleFile,
         @Suppress("UNUSED_PARAMETER") loader: ClassPath,
         debug: Boolean,
         noCode: Boolean = false,
     ): ClassFile {
-        val reader = ClassReader(bytes)
-        val builder = ClassBuilder()
+        val reader = ClassReader(file.data)
+        val builder = ClassBuilder(file.release)
         try {
             if (debug)
                 reader.accept(CheckClassAdapter(builder), if (noCode) ClassReader.SKIP_CODE else 0)
@@ -29,7 +30,7 @@ internal object Reader {
         return builder.classFile!!
     }
 
-    class ClassBuilder : ClassVisitor(Opcodes.ASM9) {
+    class ClassBuilder(val release: Int) : ClassVisitor(Opcodes.ASM9) {
         var classFile: ClassFile? = null
         // TODO: module support
         private lateinit var builder: ClassFileBuilder
@@ -47,7 +48,7 @@ internal object Reader {
             interfaces: Array<out String>?
         ) {
             this.location = Location.Class(name)
-            builder = ClassFile.Builder(version, access, name)
+            builder = ClassFile.Builder(version, access, name, release)
             builder.signature(signature?.let(ClassSignature::parse))
             builder.superName(superName?.let(::ClassReference)?.withLocation(location))
             interfaces?.forEach { builder.addInterface(ClassReference(it).withLocation(location)) }

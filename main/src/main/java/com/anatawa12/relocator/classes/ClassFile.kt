@@ -21,6 +21,7 @@ class ClassFile private constructor(
     @StaticBuilderArg var version: Int,
     @StaticBuilderArg var access: Int,
     @StaticBuilderArg var name: String,
+    @StaticBuilderArg val release: Int = 0,
     var signature: ClassSignature?,
     var superName: ClassReference?,
     interfaces: List<ClassReference>,
@@ -92,11 +93,13 @@ class ClassFile private constructor(
     }
 
     // TODO: make ClassFileBuilder internal
-    class Builder(version: Int, access: Int, name: String) : ClassFileBuilder(version, access, name) {
+    class Builder @JvmOverloads constructor(version: Int, access: Int, name: String, release: Int = 0) :
+        ClassFileBuilder(version, access, name, release) {
         override fun buildInternal(
             version: Int,
             access: Int,
             name: String,
+            release: Int,
             signature: ClassSignature?,
             superName: ClassReference?,
             interfaces: List<ClassReference>,
@@ -119,6 +122,7 @@ class ClassFile private constructor(
         ): ClassFile = ClassFile(version,
             access,
             name,
+            release,
             signature,
             superName,
             interfaces,

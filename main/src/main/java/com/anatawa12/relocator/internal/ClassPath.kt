@@ -2,6 +2,7 @@ package com.anatawa12.relocator.internal
 
 import com.anatawa12.relocator.classes.ClassFile
 import com.anatawa12.relocator.classes.ClassPath
+import com.anatawa12.relocator.file.SingleFile
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -13,7 +14,8 @@ import java.util.zip.ZipFile
 internal abstract class ClassContainer(val file: File) {
     val files: Set<String> by lazy { getPathList() }
 
-    abstract suspend fun loadFile(path: String): ByteArray?
+    suspend fun loadFile(path: String): SingleFile? = loadFiles(path).firstOrNull()
+    abstract suspend fun loadFiles(path: String): List<SingleFile>
     protected abstract fun getPathList(): Set<String>
 
     companion object {
@@ -25,11 +27,12 @@ internal abstract class ClassContainer(val file: File) {
         private val zipFile = ZipFile(file)
         private val mutex = Mutex()
 
-        override suspend fun loadFile(path: String): ByteArray? = mutex.withLock {
+        override suspend fun loadFiles(path: String): List<SingleFile> = mutex.withLock {
             withContext(Dispatchers.IO) {
                 zipFile.getEntry(path)
                     ?.let(zipFile::getInputStream)
-                    ?.use { it.readBytes() }
+                    ?.use { listOf(SingleFile(it.readBytes())) }
+                    .orEmpty()
             }
         }
 
@@ -44,12 +47,12 @@ internal abstract class ClassContainer(val file: File) {
     class Directory(file: File) : ClassContainer(file) {
         private val mutex = Mutex()
 
-        override suspend fun loadFile(path: String): ByteArray? = mutex.withLock {
+        override suspend fun loadFiles(path: String): List<SingleFile> = mutex.withLock {
             withContext(Dispatchers.IO) {
                 try {
-                    file.resolve(path).inputStream().use { it.readBytes() }
+                    file.resolve(path).inputStream().use { listOf(SingleFile(it.readBytes())) }
                 } catch (ignored: FileNotFoundException) {
-                    null
+                    emptyList()
                 }
             }
         }

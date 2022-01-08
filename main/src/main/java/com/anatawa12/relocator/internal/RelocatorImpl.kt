@@ -6,6 +6,7 @@ import com.anatawa12.relocator.Relocator
 import com.anatawa12.relocator.classes.*
 import com.anatawa12.relocator.diagnostic.*
 import com.anatawa12.relocator.file.FileObject
+import com.anatawa12.relocator.file.SingleFile
 import com.anatawa12.relocator.internal.BasicDiagnostics.UNRESOLVABLE_CLASS
 import com.anatawa12.relocator.internal.BasicDiagnostics.UNRESOLVABLE_FIELD
 import com.anatawa12.relocator.internal.BasicDiagnostics.UNRESOLVABLE_METHOD
@@ -141,7 +142,7 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
     }
 
     private fun TaskQueue.listUpFiles() = start {
-        val p = ConcurrentHashMap<String, ConcurrentLinkedQueue<ByteArray>>()
+        val p = ConcurrentHashMap<String, ConcurrentLinkedQueue<SingleFile>>()
         TaskQueue {
             for (classPath in listOf(embeds, roots)) {
                 for (name in classPath.files.filterNot { it.endsWith(".class") }) start {

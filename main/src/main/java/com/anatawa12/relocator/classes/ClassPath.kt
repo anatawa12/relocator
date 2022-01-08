@@ -1,5 +1,6 @@
 package com.anatawa12.relocator.classes
 
+import com.anatawa12.relocator.file.SingleFile
 import com.anatawa12.relocator.internal.ClassContainer
 import com.anatawa12.relocator.reference.*
 import kotlinx.coroutines.flow.*
@@ -16,10 +17,10 @@ abstract class ClassPath internal constructor(files: List<File>) {
     internal open suspend fun init() {
     }
 
-    suspend fun loadFile(path: String): ByteArray? =
+    suspend fun loadFile(path: String): SingleFile? =
         containers.firstNotNullOfOrNull { it.loadFile(path) }
 
-    suspend fun loadFiles(path: String): List<ByteArray> =
+    suspend fun loadFiles(path: String): List<SingleFile> =
         containers.mapNotNull { it.loadFile(path) }
 
     suspend fun findClass(name: String): ClassFile? {

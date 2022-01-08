@@ -10,12 +10,11 @@ class KotlinFileRelocator(val parameters: Parameters) : FileRelocator() {
         if (file.path.endsWith(".kotlin_module")) {
             if (!parameters.provideForReflection && parameters.libraryUseMode == LibraryUseMode.DoNotProvide)
                 return RelocateResult.Remove
-            val iter = file.binaries.listIterator()
-            for (bytes in iter) {
+            for (singleFile in file.files) {
                 val writer = KotlinModuleMetadata.Writer()
-                val metadata = KotlinModuleMetadata.read(bytes) ?: continue
+                val metadata = KotlinModuleMetadata.read(singleFile.data) ?: continue
                 metadata.toKmModule().accept(parameters.visitors.KmModuleVisitorImpl(writer))
-                iter.set(writer.write(/* TODO: version name */).bytes)
+                singleFile.data = writer.write(/* TODO: version name */).bytes
             }
         }
         // TODO: kotlin_builtins
