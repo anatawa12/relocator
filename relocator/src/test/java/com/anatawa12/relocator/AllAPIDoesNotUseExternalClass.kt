@@ -25,6 +25,7 @@ class AllAPIDoesNotUseExternalClass : PublicABITest(true) {
         if (clazz.name.startsWith("com.anatawa12.relocator.")) return
         if (clazz.name.startsWith("org.jetbrains.annotations.")) return
         if (clazz.name.startsWith("kotlin.jvm.JvmName")) return
+        if (clazz.name.startsWith("kotlin.jvm.JvmOverloads")) return
         if (clazz.name.startsWith("kotlin.annotations.jvm.ReadOnly")) return
         if (clazz.name.startsWith("kotlin.annotations.jvm.Mutable")) return
 
