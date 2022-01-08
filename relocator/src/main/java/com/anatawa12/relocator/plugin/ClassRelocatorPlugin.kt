@@ -1,5 +1,6 @@
 package com.anatawa12.relocator.plugin
 
+import com.anatawa12.relocator.classes.*
 import com.anatawa12.relocator.diagnostic.DiagnosticHandler
 import com.anatawa12.relocator.diagnostic.SuppressionContainer
 import com.anatawa12.relocator.reflect.ReflectionMappingContainer
@@ -11,6 +12,7 @@ import com.anatawa12.relocator.reflect.ReflectionMappingContainer
 interface PreClassRelocatorPluginContext {
     val reflectionMap: ReflectionMappingContainer
     val suppression: SuppressionContainer
+    fun getPlugin(name: String): ClassRelocatorPlugin?
 }
 
 /**
@@ -21,6 +23,7 @@ interface ClassRelocatorPluginContext {
     val relocationMapping: RelocationMapping
     val diagnosticHandler: DiagnosticHandler
     fun addClassRelocator(step: ClassRelocatorStep, relocator: ClassRelocator)
+    fun getPlugin(name: String): ClassRelocatorPlugin?
 }
 
 interface ClassRelocatorPlugin {
@@ -29,4 +32,16 @@ interface ClassRelocatorPlugin {
     //fun initialize()
     fun preApply(context: PreClassRelocatorPluginContext) {}
     fun apply(context: ClassRelocatorPluginContext) {}
+}
+
+/**
+ * You can access this plugin with name 'exclude'
+ */
+interface ExcludePlugin {
+    fun exclude(value: ClassMethod)
+    fun exclude(value: ClassField)
+    fun exclude(value: ClassRecordField)
+    fun exclude(value: ClassAnnotation)
+    fun exclude(value: ClassTypeAnnotation)
+    fun exclude(value: ClassLocalVariableAnnotation)
 }

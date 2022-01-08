@@ -243,6 +243,7 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
     private inner class PreClassRelocatorPluginContextImpl : PreClassRelocatorPluginContext {
         override val reflectionMap: ReflectionMappingContainer get() = relocator.reflectionMap
         override val suppression: SuppressionContainer get() = relocator.suppression
+        override fun getPlugin(name: String): ClassRelocatorPlugin? = relocator.plugins[name]
     }
 
     private inner class ClassRelocatorPluginContextImpl : ClassRelocatorPluginContext {
@@ -265,6 +266,8 @@ internal class RelocatingEnvironment(val relocator: Relocator) {
                 ClassRelocatorStep.Finalizing -> finalizing.add(relocator)
             }
         }
+
+        override fun getPlugin(name: String): ClassRelocatorPlugin? = relocator.plugins[name]
 
         fun buildClassRelocators(): List<ClassRelocator> = preFiltering + languageProcessing + finalizing
     }

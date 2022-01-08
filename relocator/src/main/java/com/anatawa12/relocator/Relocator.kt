@@ -5,6 +5,7 @@ import com.anatawa12.relocator.diagnostic.DiagnosticHandler
 import com.anatawa12.relocator.diagnostic.SuppressionContainer
 import com.anatawa12.relocator.internal.RelocatingEnvironment
 import com.anatawa12.relocator.internal.ThrowingDiagnosticHandler
+import com.anatawa12.relocator.internal.plugins.exclude.ExcludeClassRelocatorPlugin
 import com.anatawa12.relocator.plugin.ClassRelocatorPlugin
 import com.anatawa12.relocator.reflect.ReflectionMappingContainer
 import kotlinx.coroutines.Dispatchers
@@ -75,6 +76,10 @@ class Relocator {
      * The list of [ClassRelocatorPlugin].
      */
     val plugins: Map<String, ClassRelocatorPlugin> = Collections.unmodifiableMap(_plugins)
+
+    init {
+        addPlugin(ExcludeClassRelocatorPlugin())
+    }
 
     /**
      * Install a [ClassRelocatorPlugin].

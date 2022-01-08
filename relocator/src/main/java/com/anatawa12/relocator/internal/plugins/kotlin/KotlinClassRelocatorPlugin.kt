@@ -1,17 +1,15 @@
 package com.anatawa12.relocator.internal.plugins.kotlin
 
-import com.anatawa12.relocator.classes.ClassAnnotation
 import com.anatawa12.relocator.classes.MethodDescriptor
 import com.anatawa12.relocator.classes.TypeDescriptor
 import com.anatawa12.relocator.diagnostic.SuppressingLocation.*
-import com.anatawa12.relocator.diagnostic.SuppressingValue.*
-import com.anatawa12.relocator.internal.ConcurrentIdentityHashMap
+import com.anatawa12.relocator.diagnostic.SuppressingValue.StringPattern
+import com.anatawa12.relocator.diagnostic.SuppressingValue.StringValue
 import com.anatawa12.relocator.plugin.*
 import com.anatawa12.relocator.reference.ClassReference
 import com.anatawa12.relocator.reference.MethodReference
 import com.anatawa12.relocator.reflect.ClassRef
 import com.anatawa12.relocator.reflect.StringRef
-import java.util.*
 
 class KotlinClassRelocatorPlugin : ClassRelocatorPlugin {
     override fun getName(): String = "kotlin"
@@ -92,31 +90,18 @@ class KotlinClassRelocatorPlugin : ClassRelocatorPlugin {
 
     override fun apply(context: ClassRelocatorPluginContext) {
         // TODO: parameters from external
-        val parameters = Parameters(context.relocationMapping)
-        context.addClassRelocator(ClassRelocatorStep.PreFiltering, PreFilteringKotlinSupportRelocator(parameters))
+        val parameters = Parameters(context.relocationMapping, context.getPlugin("exclude") as ExcludePlugin)
         context.addClassRelocator(ClassRelocatorStep.LanguageProcessing, KotlinSupportRelocator(parameters))
-    }
-}
-
-class PreFilteringKotlinSupportRelocator(val parameters: Parameters) : ClassRelocator() {
-    override fun relocate(annotation: ClassAnnotation, visible: Boolean, location: AnnotationLocation): RelocateResult {
-        if (annotation.annotationClass in parameters.kotlinMetadatas)
-            return RelocateResult.Finish
-        if (annotation in parameters.excludeAnnotations)
-            return RelocateResult.Finish
-        return RelocateResult.Continue
     }
 }
 
 class Parameters(
     val mapping: RelocationMapping,
+    val excludePlugin: ExcludePlugin,
     val libraryUseMode: LibraryUseMode = LibraryUseMode.DoNotProvide,
     val provideForReflection: Boolean = true,
     val annotationSet: AnnotationSet = AnnotationSet.JetbrainsAndKotlinJvm,
 ) {
-    // shared value
-    val excludeAnnotations = Collections.newSetFromMap<ClassAnnotation>(ConcurrentIdentityHashMap())
-
     val isKotlinMetadataMapped: Boolean
     val mappedKotlinMetadata: ClassReference
     val kotlinMetadatas: Set<ClassReference>

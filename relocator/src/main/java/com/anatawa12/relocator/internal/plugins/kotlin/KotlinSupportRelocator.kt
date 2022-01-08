@@ -91,13 +91,13 @@ class KotlinSupportRelocator(
             annotation.values.clear()
             annotation.values.addAll(values)
             annotation.annotationClass = parameters.mappedKotlinMetadata
-            parameters.excludeAnnotations.add(annotation)
+            parameters.excludePlugin.exclude(annotation)
         }
         when (parameters.libraryUseMode) {
             LibraryUseMode.DoNotProvide -> {}
             LibraryUseMode.Metadata -> {
                 classFile.invisibleAnnotations.add(ClassAnnotation(Parameters.kotlinMetadata, values)
-                    .apply(parameters.excludeAnnotations::add))
+                    .apply(parameters.excludePlugin::exclude))
             }
         }
     }
